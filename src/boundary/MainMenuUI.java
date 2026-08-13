@@ -3,6 +3,7 @@ package boundary;
 import adt.ADT;
 import adt.LinkedADT;
 import control.WalkInRegistrationControl;
+import control.HousekeepingControl;
 import entity.Room;
 import java.util.Scanner;
 
@@ -17,12 +18,14 @@ public class MainMenuUI {
     private final Scanner scanner;
     private final ADT<Room> roomList;
     private final WalkInRegistrationControl walkInControl;
+    private final HousekeepingControl housekeepingControl;
 
     public MainMenuUI() {
         this.scanner = new Scanner(System.in);
         this.roomList = new LinkedADT<>();
         seedRooms();
         this.walkInControl = new WalkInRegistrationControl(roomList);
+        this.housekeepingControl = new HousekeepingControl(roomList);
     }
 
     public void displayMainMenu() {
@@ -84,16 +87,7 @@ public class MainMenuUI {
     }
 
     private void displayHousekeepingMenu() {
-        System.out.println("\n--- [Module 3] Housekeeping & Task Log ---");
-        System.out.println("1. Report 1");
-        System.out.println("2. Report 2");
-        System.out.println("0. Back to Main Menu");
-        System.out.print("Enter choice: ");
-        int choice = getIntInput();
-
-        if (choice != 0) {
-            System.out.println(">> Feature selected. (Control logic integration goes here)");
-        }
+        new HousekeepingUI(housekeepingControl, scanner).run();
     }
 
     private void displayFrontDeskMenu() {
