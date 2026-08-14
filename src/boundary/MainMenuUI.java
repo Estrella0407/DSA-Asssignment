@@ -1,18 +1,23 @@
 /*
  * Module: System Navigation & Subsystem Orchestration (Boundary UI Component)
- * Author: ALL
+ * Author: TARUMT Resorts Development Team
  * 
  * Description:
  * Boundary class for displaying the main menu, managing top-level navigation,
- * and initializing shared entity collections across integrated subsystems (ECB pattern).
+ * and initializing shared entity collections across all 4 integrated subsystems (ECB pattern).
  */
 package boundary;
 
+import adt.Dictionary;
 import adt.DoublyLinkedList;
 import adt.DoublyLinkedListInterface;
+import adt.HashTable;
+import control.FrontDeskServiceControl;
 import control.HousekeepingControl;
 import control.PriorityAllocationControl;
 import control.WalkInRegistrationControl;
+import entity.Guest;
+import entity.Member;
 import entity.Room;
 import java.util.Scanner;
 
@@ -20,17 +25,25 @@ public class MainMenuUI {
 
     private final Scanner scanner;
     private final DoublyLinkedListInterface<Room> roomList;
+    private final Dictionary<String, Guest> guestTable;
+    private final Dictionary<String, Room> roomTable;
     private final WalkInRegistrationControl walkInControl;
     private final PriorityAllocationControl priorityControl;
     private final HousekeepingControl housekeepingControl;
+    private final FrontDeskServiceControl frontDeskControl;
 
     public MainMenuUI() {
         this.scanner = new Scanner(System.in);
         this.roomList = new DoublyLinkedList<>();
-        seedRooms();
+        this.guestTable = new HashTable<>();
+        this.roomTable = new HashTable<>();
+
+        seedRoomsAndGuests();
+
         this.walkInControl = new WalkInRegistrationControl(roomList);
         this.priorityControl = new PriorityAllocationControl(roomList);
         this.housekeepingControl = new HousekeepingControl(roomList);
+        this.frontDeskControl = new FrontDeskServiceControl(guestTable, roomTable);
     }
 
     public void displayMainMenu() {
@@ -84,29 +97,49 @@ public class MainMenuUI {
     }
 
     private void displayFrontDeskMenu() {
-        System.out.println("\n--- [Module 4] Front-Desk Service (Pending Team Member Sync) ---");
-        System.out.println("1. Query Guest Information (8-digit Confirmation Search)");
-        System.out.println("2. Room Availability & Billing Query");
-        System.out.println("0. Back to Main Menu");
-        System.out.print("Enter choice: ");
-        int choice = getIntInput();
-
-        if (choice != 0) {
-            System.out.println(">> Notice: Front-Desk module integration will be synced once your team member provides the sub-system.");
-        }
+        new FrontDeskServiceUI(frontDeskControl, scanner).run();
     }
 
     /**
-     * Initial resort room inventory shared across all subsystems.
+     * Initial resort room inventory and sample guests shared across subsystems.
      */
-    private void seedRooms() {
-        roomList.insertLast(new Room("101", "Ready for Check-In", true));
-        roomList.insertLast(new Room("102", "Ready for Check-In", true));
-        roomList.insertLast(new Room("103", "Dirty", true));
-        roomList.insertLast(new Room("104", "Cleaning In Progress", false));
-        roomList.insertLast(new Room("105", "Ready for Check-In", true));
-        roomList.insertLast(new Room("201", "Ready for Check-In", true));
-        roomList.insertLast(new Room("202", "Inspected", true));
+    private void seedRoomsAndGuests() {
+        Room r101 = new Room("101", "Ready for Check-In", true);
+        Room r102 = new Room("102", "Ready for Check-In", true);
+        Room r103 = new Room("103", "Dirty", true);
+        Room r104 = new Room("104", "Cleaning In Progress", false);
+        Room r105 = new Room("105", "Ready for Check-In", true);
+        Room r201 = new Room("201", "Ready for Check-In", true);
+        Room r202 = new Room("202", "Inspected", true);
+
+        // Add to Linear ADT room list
+        roomList.insertLast(r101);
+        roomList.insertLast(r102);
+        roomList.insertLast(r103);
+        roomList.insertLast(r104);
+        roomList.insertLast(r105);
+        roomList.insertLast(r201);
+        roomList.insertLast(r202);
+
+        // Add to Front-Desk Hash Table room dictionary for fast lookup
+        roomTable.add(r101.getRoomNumber(), r101);
+        roomTable.add(r102.getRoomNumber(), r102);
+        roomTable.add(r103.getRoomNumber(), r103);
+        roomTable.add(r104.getRoomNumber(), r104);
+        roomTable.add(r105.getRoomNumber(), r105);
+        roomTable.add(r201.getRoomNumber(), r201);
+        roomTable.add(r202.getRoomNumber(), r202);
+
+        // Seed sample guests into Front-Desk Hash Table guest dictionary
+        Guest g1 = new Guest("10001001", "Alice Tan", true, "Booked", r101, "Credit Card - Paid", new Member("M101", "GOLD", 500));
+        Guest g2 = new Guest("10001002", "Dato Steven", true, "Booked", r102, "Corporate Billing", new Member("M102", "DIAMOND", 2500));
+        Guest g3 = new Guest("10001003", "Bob Lee", false, "Walk-in", null, "Cash - Pending", null);
+        Guest g4 = new Guest("10001004", "Dr. Clara", false, "Booked", null, "Direct Transfer", new Member("M104", "ELITE", 1800));
+
+        guestTable.add(g1.getConfirmationNumber(), g1);
+        guestTable.add(g2.getConfirmationNumber(), g2);
+        guestTable.add(g3.getConfirmationNumber(), g3);
+        guestTable.add(g4.getConfirmationNumber(), g4);
     }
 
     private int getIntInput() {
