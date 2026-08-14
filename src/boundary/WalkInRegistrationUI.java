@@ -1,7 +1,10 @@
 /*
+ * Module: Walk-In Registrations & Standard Booking Procedure (Boundary UI Component)
  * Author: LAW QINQI
- * Boundary class - console UI. Only communicates with actors and the
- * control object (WalkInRegistrationControl), per the ECB pattern.
+ * 
+ * Description:
+ * Boundary class handling console user interaction for Walk-In Registrations & Standard Booking.
+ * Strictly adheres to ECB constraints (communicates only with Actor and WalkInRegistrationControl).
  */
 package boundary;
 
@@ -23,8 +26,8 @@ public class WalkInRegistrationUI {
 
     /**
      * Preferred when launched from another boundary class (e.g. MainMenuUI):
-     * reuses the caller's Scanner instead of opening a second one on
-     * System.in, which would otherwise silently drop buffered input.
+     * reuses the caller's Scanner instead of opening a second one on System.in,
+     * which would otherwise silently drop buffered input.
      */
     public WalkInRegistrationUI(WalkInRegistrationControl control, Scanner sc) {
         this.control = control;
@@ -50,10 +53,10 @@ public class WalkInRegistrationUI {
                     checkOutGuest();
                     break;
                 case 5:
-                    control.printGuestCheckInReport(null, null);
+                    generateGuestCheckInReport();
                     break;
                 case 6:
-                    control.printQueueSummaryReport();
+                    generateQueueSummaryReport();
                     break;
                 case 0:
                     System.out.println("Exiting Walk-In Registration module. Goodbye!");
@@ -131,6 +134,43 @@ public class WalkInRegistrationUI {
         } catch (IllegalArgumentException | IllegalStateException ex) {
             System.out.println("Could not check out guest: " + ex.getMessage());
         }
+    }
+
+    private void generateGuestCheckInReport() {
+        System.out.println("\n--- Guest Check-In Status Report Filters ---");
+        System.out.println("Type filter: (0: ALL | 1: Walk-in | 2: Booked)");
+        int typeChoice = readInt("Choose type filter: ");
+        String typeFilter = null;
+        if (typeChoice == 1) {
+            typeFilter = "Walk-in"; 
+        }else if (typeChoice == 2) {
+            typeFilter = "Booked";
+        }
+
+        System.out.println("Status filter: (0: ALL | 1: Checked-In | 2: Pending)");
+        int statusChoice = readInt("Choose status filter: ");
+        Boolean statusFilter = null;
+        if (statusChoice == 1) {
+            statusFilter = Boolean.TRUE; 
+        }else if (statusChoice == 2) {
+            statusFilter = Boolean.FALSE;
+        }
+
+        control.printGuestCheckInReport(typeFilter, statusFilter);
+    }
+
+    private void generateQueueSummaryReport() {
+        System.out.println("\n--- Active Queue Audit Report Filters ---");
+        System.out.println("Type filter: (0: ALL | 1: Walk-in | 2: Booked)");
+        int typeChoice = readInt("Choose type filter: ");
+        String typeFilter = null;
+        if (typeChoice == 1) {
+            typeFilter = "Walk-in"; 
+        }else if (typeChoice == 2) {
+            typeFilter = "Booked";
+        }
+
+        control.printQueueSummaryReport(typeFilter);
     }
 
     private int readInt(String prompt) {

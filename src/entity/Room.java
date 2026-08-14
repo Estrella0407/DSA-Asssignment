@@ -1,13 +1,15 @@
+/*
+ * Module: Shared Entity Component
+ * Author: WEI XIN
+ * 
+ * Description:
+ * Entity class representing a Hotel Room in the resort inventory.
+ * Tracks room number, cleaning status, and room availability.
+ */
 package entity;
 
 import java.io.Serializable;
 import java.util.Objects;
-
-/**
- * Entity class representing a Hotel Room.
- * 
- * @author -
- */
 
 public class Room implements Serializable, Comparable<Room> {
 
@@ -38,7 +40,13 @@ public class Room implements Serializable, Comparable<Room> {
     }
 
     public void setCleaningStatus(String cleaningStatus) {
-        this.cleaningStatus = cleaningStatus;
+        if (cleaningStatus != null && !cleaningStatus.trim().isEmpty()) {
+            this.cleaningStatus = cleaningStatus.trim();
+        }
+    }
+
+    public boolean isRoomAvailable() {
+        return isAvailable;
     }
 
     public boolean isAvailable() {
@@ -59,8 +67,12 @@ public class Room implements Serializable, Comparable<Room> {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
         Room room = (Room) obj;
         return Objects.equals(roomNumber, room.roomNumber);
     }

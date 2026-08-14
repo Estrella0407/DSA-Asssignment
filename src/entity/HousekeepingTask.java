@@ -1,6 +1,10 @@
 /*
+ * Module: Housekeeping and Task Log (Entity Component)
  * Author: NEO AI YIK
- * Entity class representing one housekeeping status-change task/log entry.
+ * 
+ * Description:
+ * Entity class representing one housekeeping status-change task and audit log entry.
+ * Tracks task ID, room reference, staff name, previous status, new status, timestamp, and remarks.
  */
 package entity;
 

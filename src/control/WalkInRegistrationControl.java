@@ -1,18 +1,16 @@
 /*
+ * Module: Walk-In Registrations & Standard Booking Procedure (Control Component)
  * Author: LAW QINQI
- * Control class - implements business logic for the Walk-In Registrations &
- * Standard Booking Procedure use case. Orchestrates the Guest queue (Linear
- * ADT) and the Room list, and produces management reports.
- *
- * Adapted to the shared entity.Guest / entity.Room definitions: unlike an
- * earlier draft, Guest has no Status enum or TYPE_/PREFIX_ constants of
- * its own (just a plain checkInStatus boolean), so those labels/prefixes
- * are tracked locally in this control class instead.
+ * 
+ * Description:
+ * Control class implementing business logic for Walk-In Registrations & Standard Booking.
+ * Orchestrates the Guest FIFO queue (Doubly Linked List Linear ADT), shared room inventory,
+ * check-in/check-out lifecycle, and analytical management reports.
  */
 package control;
 
-import adt.ADT;
-import adt.LinkedADT;
+import adt.DoublyLinkedList;
+import adt.DoublyLinkedListInterface;
 import entity.Guest;
 import entity.Room;
 
@@ -32,27 +30,26 @@ public class WalkInRegistrationControl {
     private static final String STATUS_READY = "Ready for Check-In";
 
     // Chronological queue of guests awaiting check-in / room assignment.
-    private ADT<Guest> guestQueue;
+    private DoublyLinkedListInterface<Guest> guestQueue;
     // All guests ever registered (kept for reporting even after check-in).
-    private ADT<Guest> guestRecords;
+    private DoublyLinkedListInterface<Guest> guestRecords;
     // Room inventory (would normally be populated by the Room Management module).
-    private ADT<Room> roomList;
+    private DoublyLinkedListInterface<Room> roomList;
 
     private int confirmationSeed = 1000;
 
-    public WalkInRegistrationControl(ADT<Room> roomList) {
-        this.guestQueue = new LinkedADT<>();
-        this.guestRecords = new LinkedADT<>();
+    public WalkInRegistrationControl(DoublyLinkedListInterface<Room> roomList) {
+        this.guestQueue = new DoublyLinkedList<>();
+        this.guestRecords = new DoublyLinkedList<>();
         this.roomList = roomList;
     }
 
     // ---------- Registration ----------
-
     /**
      * Register a new walk-in guest and add them to the back of the
-     * chronological processing queue (Linear ADT - FIFO).
-     * Pre-cond: name and billingDetails are non-blank.
-     * Throws IllegalArgumentException if validation fails.
+     * chronological processing queue (Linear ADT - FIFO). Pre-cond: name and
+     * billingDetails are non-blank. Throws IllegalArgumentException if
+     * validation fails.
      */
     public Guest registerWalkIn(String name, String billingDetails) {
         String cleanName = requireNonBlank(name, "Guest name");
@@ -69,11 +66,11 @@ public class WalkInRegistrationControl {
      * Register a new standard-booking guest and add them to the back of the
      * chronological processing queue (Linear ADT - FIFO).
      *
-     * Pre-cond: name and billingDetails are non-blank.
-     * Standard-booking confirmation numbers are always normalised to carry
-     * the "SG-" prefix (mirroring the "WI-" prefix walk-ins get), and must
-     * be unique among existing guest records.
-     * Throws IllegalArgumentException if validation fails.
+     * Pre-cond: name and billingDetails are non-blank. Standard-booking
+     * confirmation numbers are always normalised to carry the "SG-" prefix
+     * (mirroring the "WI-" prefix walk-ins get), and must be unique among
+     * existing guest records. Throws IllegalArgumentException if validation
+     * fails.
      */
     public Guest registerBooking(String confirmationNumber, String name, String billingDetails) {
         String cleanName = requireNonBlank(name, "Guest name");
@@ -95,7 +92,9 @@ public class WalkInRegistrationControl {
         return guest;
     }
 
-    /** Trim and validate that a required field is not null/blank. */
+    /**
+     * Trim and validate that a required field is not null/blank.
+     */
     private String requireNonBlank(String value, String fieldLabel) {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException(fieldLabel + " cannot be empty.");
@@ -103,7 +102,10 @@ public class WalkInRegistrationControl {
         return value.trim();
     }
 
-    /** Linear search to check whether a confirmation number is already on record. */
+    /**
+     * Linear search to check whether a confirmation number is already on
+     * record.
+     */
     private boolean isConfirmationNumberTaken(String confirmationNumber) {
         for (int i = 0; i < guestRecords.getNumberOfEntries(); i++) {
             if (guestRecords.getEntry(i).getConfirmationNumber().equalsIgnoreCase(confirmationNumber)) {
@@ -114,11 +116,10 @@ public class WalkInRegistrationControl {
     }
 
     // ---------- Queue processing ----------
-
     /**
      * Process the next guest in line: dequeue them, search for the first
-     * available, ready-for-check-in room, assign it, and check them in.
-     * Returns null if the queue is empty or no room is available.
+     * available, ready-for-check-in room, assign it, and check them in. Returns
+     * null if the queue is empty or no room is available.
      */
     public Guest processNextGuest() {
         if (guestQueue.isEmpty()) {
@@ -135,11 +136,13 @@ public class WalkInRegistrationControl {
         return guest;
     }
 
-    /** Linear search for the first available, ready-for-check-in room. */
+    /**
+     * Linear search for the first available, ready-for-check-in room.
+     */
     private Room findFirstAvailableCleanRoom() {
         for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
             Room r = roomList.getEntry(i);
-            if (r.isAvailable() && r.getCleaningStatus().equalsIgnoreCase(STATUS_READY)) {
+            if (r != null && r.isRoomAvailable() && r.getCleaningStatus().equalsIgnoreCase(STATUS_READY)) {
                 return r;
             }
         }
@@ -156,15 +159,9 @@ public class WalkInRegistrationControl {
 
     /**
      * Check out a guest by confirmation number (linear search + removal).
-     * Pre-cond: confirmationNumber is non-blank.
-     * Throws IllegalArgumentException if no matching guest record is found,
-     * and IllegalStateException if the matching guest is not currently
-     * checked in.
-     *
-     * Note: Guest only tracks a plain checkInStatus boolean (no separate
-     * PENDING/CHECKED_OUT states), so a guest who has already checked out
-     * reads identically to one who never checked in - both are simply
-     * "not currently checked in".
+     * Pre-cond: confirmationNumber is non-blank. Throws
+     * IllegalArgumentException if no matching guest record is found, and
+     * IllegalStateException if the matching guest is not currently checked in.
      */
     public boolean checkOutGuest(String confirmationNumber) {
         String cleanConf = requireNonBlank(confirmationNumber, "Confirmation number");
@@ -188,15 +185,12 @@ public class WalkInRegistrationControl {
         throw new IllegalArgumentException("No guest found with confirmation number \"" + cleanConf + "\".");
     }
 
-    // ---------- Report: Guest Registration & Check-In Status Report ----------
+    // ---------- Report 1: Guest Registration & Check-In Status Report ----------
     // Combines: linear search (filter by type/status) + insertion sort (by name)
-    // Note: room-level reporting (occupancy, cleaning status) belongs to the
-    // separate Room Management module, so this module only reports on guests.
-
     /**
-     * @param typeFilter       null for all types, or "Walk-in"/"Booked"
-     * @param checkedInFilter  null for all guests, TRUE for checked-in only,
-     *                         FALSE for not-currently-checked-in only
+     * @param typeFilter null for all types, or "Walk-in"/"Booked"
+     * @param checkedInFilter null for all guests, TRUE for checked-in only,
+     * FALSE for not-currently-checked-in only
      */
     public void printGuestCheckInReport(String typeFilter, Boolean checkedInFilter) {
         // Step 1: search/filter matching guests into a temporary array.
@@ -223,8 +217,8 @@ public class WalkInRegistrationControl {
         }
 
         // Step 3: print structured report.
-        System.out.println("=====================================================================");
-        System.out.println(" GUEST REGISTRATION & CHECK-IN STATUS REPORT");
+        System.out.println("\n=====================================================================");
+        System.out.println("            GUEST REGISTRATION & CHECK-IN STATUS REPORT");
         System.out.println(" Filter -> Type: " + (typeFilter == null ? "ALL" : typeFilter)
                 + " | Status: " + (checkedInFilter == null ? "ALL" : (checkedInFilter ? "Checked-In" : "Pending")));
         System.out.println("=====================================================================");
@@ -243,41 +237,64 @@ public class WalkInRegistrationControl {
         System.out.println("=====================================================================\n");
     }
 
-    // report: queue summary
-    public void printQueueSummaryReport() {
+    // ---------- Report 2: Active Waitlist & Queue Summary Report ----------
+    // Combines: search/filter by guest type + insertion sort (by name/pos)
+    public void printQueueSummaryReport(String typeFilter) {
+        int totalQueue = guestQueue.getNumberOfEntries();
+        Guest[] filtered = new Guest[totalQueue];
+        int count = 0;
+        int walkInCount = 0;
+        int bookedCount = 0;
 
-        System.out.println("=============================================================");
-        System.out.println("              WALK-IN QUEUE SUMMARY REPORT");
-        System.out.println("=============================================================");
-
-        System.out.printf("%-5s %-10s %-20s %-10s\n",
-                "No", "Conf No", "Guest Name", "Type");
-
-        System.out.println("-------------------------------------------------------------");
-
-        int walkIn = 0;
-        int booked = 0;
-
-        for (int i = 0; i < guestQueue.getNumberOfEntries(); i++) {
-
+        for (int i = 0; i < totalQueue; i++) {
             Guest g = guestQueue.getEntry(i);
+            if (g.getType().equalsIgnoreCase(TYPE_WALKIN)) {
+                walkInCount++;
+            } else {
+                bookedCount++;
+            }
 
-            System.out.printf("%-5d %-10s %-20s %-10s\n",
-                    i + 1,
-                    g.getConfirmationNumber(),
-                    g.getName(),
-                    g.getType());
-
-            if (g.getType().equalsIgnoreCase(TYPE_WALKIN))
-                walkIn++;
-            else
-                booked++;
+            if (typeFilter == null || g.getType().equalsIgnoreCase(typeFilter)) {
+                filtered[count++] = g;
+            }
         }
 
-        System.out.println("-------------------------------------------------------------");
-        System.out.println("Total Waiting Guests : " + guestQueue.getNumberOfEntries());
-        System.out.println("Walk-in Guests       : " + walkIn);
-        System.out.println("Booked Guests        : " + booked);
-        System.out.println("=============================================================");
+        // Insertion sort by name
+        for (int i = 1; i < count; i++) {
+            Guest key = filtered[i];
+            int j = i - 1;
+            while (j >= 0 && filtered[j].getName().compareToIgnoreCase(key.getName()) > 0) {
+                filtered[j + 1] = filtered[j];
+                j--;
+            }
+            filtered[j + 1] = key;
+        }
+
+        System.out.println("\n=====================================================================");
+        System.out.println("                 ACTIVE QUEUE WAITLIST AUDIT REPORT");
+        System.out.println(" Filter -> Type: " + (typeFilter == null ? "ALL" : typeFilter));
+        System.out.println("=====================================================================");
+        System.out.printf("%-5s %-10s %-20s %-12s %-15s\n",
+                "No", "Conf No", "Guest Name", "Type", "Billing");
+        System.out.println("---------------------------------------------------------------------");
+
+        if (count == 0) {
+            System.out.println("          No waiting guests match the selected criteria.");
+        } else {
+            for (int i = 0; i < count; i++) {
+                Guest g = filtered[i];
+                System.out.printf("%-5d %-10s %-20s %-12s %-15s\n",
+                        (i + 1), g.getConfirmationNumber(), g.getName(), g.getType(), g.getBillingDetails());
+            }
+        }
+
+        System.out.println("---------------------------------------------------------------------");
+        System.out.println(" Total Matching Guests In Queue : " + count);
+        System.out.println(" Overall Queue Stats -> Total: " + totalQueue + " | Walk-in: " + walkInCount + " | Booked: " + bookedCount);
+        System.out.println("=====================================================================\n");
+    }
+
+    public void printQueueSummaryReport() {
+        printQueueSummaryReport(null);
     }
 }

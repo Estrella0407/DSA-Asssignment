@@ -1,12 +1,16 @@
 /*
+ * Module: Housekeeping and Task Log (Control Component)
  * Author: NEO AI YIK
- * Control class for the Housekeeping and Task Log module.
- * Uses the team's custom Linear ADT for room data and housekeeping history.
+ * 
+ * Description:
+ * Control class implementing business logic for Housekeeping and Task Log.
+ * Coordinates sequential room cleaning workflows, LIFO schedule undo / rollback using
+ * the Linear ADT task log, late check-out resets, supervisor corrections, and management reports.
  */
 package control;
 
-import adt.ADT;
-import adt.LinkedADT;
+import adt.DoublyLinkedList;
+import adt.DoublyLinkedListInterface;
 import entity.HousekeepingTask;
 import entity.Room;
 import java.time.LocalDateTime;
@@ -19,20 +23,20 @@ public class HousekeepingControl {
     public static final String STATUS_INSPECTED = "Inspected";
     public static final String STATUS_READY = "Ready for Check-In";
 
-    private final ADT<Room> roomList;
-    private final ADT<HousekeepingTask> taskLog;
+    private final DoublyLinkedListInterface<Room> roomList;
+    private final DoublyLinkedListInterface<HousekeepingTask> taskLog;
     private int taskSeed = 1;
 
-    public HousekeepingControl(ADT<Room> roomList) {
+    public HousekeepingControl(DoublyLinkedListInterface<Room> roomList) {
         this.roomList = roomList;
-        this.taskLog = new LinkedADT<>();
+        this.taskLog = new DoublyLinkedList<>();
     }
 
-    public ADT<Room> getRoomList() {
+    public DoublyLinkedListInterface<Room> getRoomList() {
         return roomList;
     }
 
-    public ADT<HousekeepingTask> getTaskLog() {
+    public DoublyLinkedListInterface<HousekeepingTask> getTaskLog() {
         return taskLog;
     }
 
@@ -55,8 +59,8 @@ public class HousekeepingControl {
     }
 
     /**
-     * Updates cleaning status using the normal housekeeping sequence.
-     * Dirty -> Cleaning In Progress -> Inspected -> Ready for Check-In.
+     * Updates cleaning status using the normal housekeeping sequence. Dirty ->
+     * Cleaning In Progress -> Inspected -> Ready for Check-In.
      */
     public HousekeepingTask updateCleaningStatus(String roomNumber, String newStatus,
             String staffName, String remarks) {
@@ -106,8 +110,8 @@ public class HousekeepingControl {
     }
 
     /**
-     * Changes room availability separately from cleaning status.
-     * Unavailable is therefore not treated as a cleaning status.
+     * Changes room availability separately from cleaning status. Unavailable is
+     * therefore not treated as a cleaning status.
      */
     public void updateRoomAvailability(String roomNumber, boolean available) {
         Room room = findRoomByNumber(roomNumber);
@@ -135,9 +139,9 @@ public class HousekeepingControl {
     }
 
     /**
-     * Rolls back the latest recorded task belonging to a selected room.
-     * The search uses the ADT entries and removeAt() when the room's latest
-     * task is not the overall last task.
+     * Rolls back the latest recorded task belonging to a selected room. The
+     * search uses the ADT entries and removeAt() when the room's latest task is
+     * not the overall last task.
      */
     public HousekeepingTask rollbackLatestUpdateForRoom(String roomNumber) {
         Room room = findRoomByNumber(roomNumber);
@@ -253,7 +257,7 @@ public class HousekeepingControl {
         System.out.println("=======================================================================");
         System.out.println("Filter -> Status: " + (statusFilter == null ? "ALL" : statusFilter)
                 + " | Availability: " + (availabilityFilter == null ? "ALL"
-                : (availabilityFilter ? "Available" : "Unavailable")));
+                        : (availabilityFilter ? "Available" : "Unavailable")));
         System.out.println("-----------------------------------------------------------------------");
         System.out.printf("%-10s %-26s %-16s %-22s%n",
                 "Room No.", "Cleaning Status", "Availability", "Next Status");
@@ -274,8 +278,8 @@ public class HousekeepingControl {
     }
 
     /**
-     * Report 2: multiple-criteria task filtering followed by manual insertion sort.
-     * Criteria: staff + room + new status.
+     * Report 2: multiple-criteria task filtering followed by manual insertion
+     * sort. Criteria: staff + room + new status.
      */
     public void printTaskActivityReport(String staffFilter, String roomFilter,
             String newStatusFilter) {

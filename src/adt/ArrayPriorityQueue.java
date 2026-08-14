@@ -1,14 +1,14 @@
+/*
+ * Module: Non-Linear ADT (Priority Queue Collection ADT Implementation)
+ * Author: WEI XIN
+ * 
+ * Description:
+ * Priority Queue ADT implementation maintaining a sorted array structure.
+ * Insertion places elements in priority order (highest tier/priority first at index 0).
+ */
 package adt;
 
 import java.io.Serializable;
-
-/**
- * Priority Queue ADT implementation maintaining a sorted array structure.
- * Insertion places elements in priority order (highest tier/priority first).
- * 
- * @author Wei Xin
- * @param <T>
- */
 
 public class ArrayPriorityQueue<T extends Comparable<T>> implements PriorityQueueInterface<T>, Serializable {
 
@@ -29,7 +29,9 @@ public class ArrayPriorityQueue<T extends Comparable<T>> implements PriorityQueu
 
     @Override
     public boolean enqueue(T newEntry) {
-        if (newEntry == null) return false;
+        if (newEntry == null) {
+            return false;
+        }
         if (isArrayFull()) {
             doubleArray();
         }
@@ -47,7 +49,9 @@ public class ArrayPriorityQueue<T extends Comparable<T>> implements PriorityQueu
 
     @Override
     public T dequeue() {
-        if (isEmpty()) return null;
+        if (isEmpty()) {
+            return null;
+        }
         T highestPriority = array[0];
         // Shift remaining items left
         for (int i = 0; i < size - 1; i++) {
@@ -60,8 +64,18 @@ public class ArrayPriorityQueue<T extends Comparable<T>> implements PriorityQueu
 
     @Override
     public T getMin() {
-        if (isEmpty()) return null;
+        if (isEmpty()) {
+            return null;
+        }
         return array[0];
+    }
+
+    @Override
+    public T getEntry(int index) {
+        if (index < 0 || index >= size) {
+            return null;
+        }
+        return array[index];
     }
 
     @Override

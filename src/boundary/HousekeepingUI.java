@@ -1,11 +1,14 @@
 /*
+ * Module: Housekeeping and Task Log (Boundary UI Component)
  * Author: NEO AI YIK
- * Boundary class for the Housekeeping and Task Log module.
- * Interacts with the actor and HousekeepingControl.
+ * 
+ * Description:
+ * Boundary class handling console user interaction for Housekeeping and Task Log.
+ * Strictly adheres to ECB constraints (communicates only with Actor and HousekeepingControl).
  */
 package boundary;
 
-import adt.ADT;
+import adt.DoublyLinkedListInterface;
 import control.HousekeepingControl;
 import entity.HousekeepingTask;
 import entity.Room;
@@ -77,7 +80,7 @@ public class HousekeepingUI {
     }
 
     private void viewRoomCleaningStatus() {
-        ADT<Room> rooms = control.getRoomList();
+        DoublyLinkedListInterface<Room> rooms = control.getRoomList();
         System.out.println("\n---------------- ROOM STATUS ----------------");
         if (rooms.isEmpty()) {
             System.out.println("No rooms available in the system.");
@@ -234,7 +237,7 @@ public class HousekeepingUI {
     }
 
     private void viewTaskLog() {
-        ADT<HousekeepingTask> tasks = control.getTaskLog();
+        DoublyLinkedListInterface<HousekeepingTask> tasks = control.getTaskLog();
         System.out.println("\n---------------- HOUSEKEEPING TASK LOG ----------------");
         if (tasks.isEmpty()) {
             System.out.println("No housekeeping tasks have been recorded yet.");

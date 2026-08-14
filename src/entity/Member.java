@@ -1,13 +1,15 @@
+/*
+ * Module: VIP & Loyalty Tier Priority Room Allocation (Entity Component)
+ * Author: WEI XIN
+ * 
+ * Description:
+ * Entity class representing a Loyalty Member, including member ID,
+ * tier level (Diamond, Platinum, Elite, Gold, Silver, Standard), and points.
+ */
 package entity;
 
 import java.io.Serializable;
 import java.util.Objects;
-
-/**
- * Entity class representing a Loyalty Member.
- * 
- * @author Wei Xin
- */
 
 public class Member implements Serializable, Comparable<Member> {
 
@@ -69,11 +71,15 @@ public class Member implements Serializable, Comparable<Member> {
      * Helper priority weight for non-linear priority queue room allocation.
      */
     public int getTierPriorityWeight() {
-        if (tierType == null) return 0;
+        if (tierType == null) {
+            return 0;
+        }
         switch (tierType.toUpperCase()) {
             case "DIAMOND":
-                return 4;
+                return 5;
             case "PLATINUM":
+                return 4;
+            case "ELITE":
                 return 3;
             case "GOLD":
                 return 2;
@@ -86,20 +92,40 @@ public class Member implements Serializable, Comparable<Member> {
 
     @Override
     public int compareTo(Member other) {
-        if (other == null) return 1;
-        // Higher tier priority takes precedence
+        if (other == null) {
+            return -1;
+        }
+        // Higher tier priority takes precedence (returns negative so it is enqueued first)
         int priorityCompare = Integer.compare(other.getTierPriorityWeight(), this.getTierPriorityWeight());
         if (priorityCompare != 0) {
             return priorityCompare;
         }
-        // Secondary sort by member ID
+        // Secondary sort by loyalty points (higher points takes precedence)
+        int pointsCompare = Integer.compare(other.getPoints(), this.points);
+        if (pointsCompare != 0) {
+            return pointsCompare;
+        }
+        // Tertiary sort by member ID
+        if (this.memberID == null && other.memberID == null) {
+            return 0;
+        }
+        if (this.memberID == null) {
+            return 1;
+        }
+        if (other.memberID == null) {
+            return -1;
+        }
         return this.memberID.compareTo(other.memberID);
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
         Member member = (Member) obj;
         return Objects.equals(memberID, member.memberID);
     }

@@ -1,13 +1,16 @@
+/*
+ * Module: Shared Entity Component (Guest & Reservation)
+ * Author: WEI XIN
+ * 
+ * Description:
+ * Entity class representing a Guest / Reservation profile in TARUMT Resorts.
+ * Holds confirmation number, guest name, check-in status, guest type, assigned room,
+ * billing details, and optional VIP loyalty member profile.
+ */
 package entity;
 
 import java.io.Serializable;
 import java.util.Objects;
-
-/**
- * Entity class representing a Guest/Reservation.
- * 
- * @author -
- */
 
 public class Guest implements Serializable, Comparable<Guest> {
 
@@ -27,8 +30,8 @@ public class Guest implements Serializable, Comparable<Guest> {
         this(confirmationNumber, name, false, type, null, "Pending Billing", null);
     }
 
-    public Guest(String confirmationNumber, String name, boolean checkInStatus, 
-                 String type, Room assignedRoom, String billingDetails, Member memberProfile) {
+    public Guest(String confirmationNumber, String name, boolean checkInStatus,
+            String type, Room assignedRoom, String billingDetails, Member memberProfile) {
         this.confirmationNumber = confirmationNumber;
         this.name = name;
         this.checkInStatus = checkInStatus;
@@ -104,16 +107,43 @@ public class Guest implements Serializable, Comparable<Guest> {
 
     @Override
     public int compareTo(Guest other) {
-        if (other == null || this.confirmationNumber == null) {
+        if (other == null) {
+            return -1;
+        }
+
+        // Priority Queue VIP Ranking: VIP members take priority over non-members
+        if (this.memberProfile != null && other.memberProfile != null) {
+            int memberComp = this.memberProfile.compareTo(other.memberProfile);
+            if (memberComp != 0) {
+                return memberComp;
+            }
+        } else if (this.memberProfile != null) {
+            return -1; // this guest has VIP membership, goes first
+        } else if (other.memberProfile != null) {
+            return 1; // other guest has VIP membership, goes first
+        }
+
+        // Secondary fallback comparison by confirmation number
+        if (this.confirmationNumber == null && other.confirmationNumber == null) {
             return 0;
+        }
+        if (this.confirmationNumber == null) {
+            return 1;
+        }
+        if (other.confirmationNumber == null) {
+            return -1;
         }
         return this.confirmationNumber.compareTo(other.getConfirmationNumber());
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
         Guest guest = (Guest) obj;
         return Objects.equals(confirmationNumber, guest.confirmationNumber);
     }
@@ -127,8 +157,9 @@ public class Guest implements Serializable, Comparable<Guest> {
     public String toString() {
         String roomNo = (assignedRoom != null) ? assignedRoom.getRoomNumber() : "Unassigned";
         String tier = (memberProfile != null) ? memberProfile.getTierType() : "Non-Member";
-        
-        return String.format("Conf. No: %-8s | Name: %-15s | Type: %-7s | Tier: %-8s | Room: %-6s | Status: %s | Billing: %s",
-                confirmationNumber, name, type, tier, roomNo, (checkInStatus ? "Checked-In" : "Pending"), billingDetails);
+        int pts = (memberProfile != null) ? memberProfile.getPoints() : 0;
+
+        return String.format("Conf. No: %-8s | Name: %-15s | Type: %-7s | Tier: %-8s (%4d pts) | Room: %-6s | Status: %-10s | Billing: %s",
+                confirmationNumber, name, type, tier, pts, roomNo, (checkInStatus ? "Checked-In" : "Pending"), billingDetails);
     }
 }

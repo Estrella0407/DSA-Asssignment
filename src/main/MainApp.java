@@ -1,12 +1,13 @@
+/*
+ * Module: Main Application Driver
+ * Author:  WEI XIN
+ * 
+ * Description:
+ * Main entry point class for launching the TARUMT Resorts Management System.
+ */
 package main;
 
 import boundary.MainMenuUI;
-
-/**
- * Main entry point for the TARUMT Resorts Application.
- * 
- * @author -
- */
 
 public class MainApp {
 
