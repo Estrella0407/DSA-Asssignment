@@ -1,6 +1,14 @@
 package boundary;
 
+<<<<<<< HEAD
 import boundary.PriorityAllocationUI;
+=======
+import adt.ADT;
+import adt.LinkedADT;
+import control.WalkInRegistrationControl;
+import control.HousekeepingControl;
+import entity.Room;
+>>>>>>> origin/master
 import java.util.Scanner;
 
 /**
@@ -13,10 +21,17 @@ public class MainMenuUI {
 
     private final PriorityAllocationUI priorityAllocationUI;
     private final Scanner scanner;
+    private final ADT<Room> roomList;
+    private final WalkInRegistrationControl walkInControl;
+    private final HousekeepingControl housekeepingControl;
 
     public MainMenuUI() {
         this.priorityAllocationUI = new PriorityAllocationUI();
         this.scanner = new Scanner(System.in);
+        this.roomList = new LinkedADT<>();
+        seedRooms();
+        this.walkInControl = new WalkInRegistrationControl(roomList);
+        this.housekeepingControl = new HousekeepingControl(roomList);
     }
 
     public void displayMainMenu() {
@@ -52,35 +67,20 @@ public class MainMenuUI {
                     System.out.println("\nExiting system. Thank you!");
                     break;
                 default:
-                    System.out.println("Invalid choice! Please enter a number between 0 and 5.");
+                    System.out.println("Invalid choice! Please enter a number between 0 and 4.");
             }
         } while (choice != 0);
     }
 
     private void displayWalkInMenu() {
-        System.out.println("\n--- [Module 1] Walk-In & Standard Booking ---");
-        System.out.println("1. Report 1");
-        System.out.println("2. Report 2");
-        System.out.println("0. Back to Main Menu");
-        System.out.print("Enter choice: ");
-        int choice = getIntInput();
-        
-        if (choice != 0) {
-            System.out.println(">> Feature selected. (Control logic integration goes here)");
-        }
+        // [Module 1] delegates straight to the dedicated Walk-In
+        // Registrations & Standard Booking boundary/control pair, reusing
+        // this menu's Scanner so input isn't split across two Scanners.
+        new WalkInRegistrationUI(walkInControl, scanner).run();
     }
 
     private void displayHousekeepingMenu() {
-        System.out.println("\n--- [Module 3] Housekeeping & Task Log ---");
-        System.out.println("1. Report 1");
-        System.out.println("2. Report 2");
-        System.out.println("0. Back to Main Menu");
-        System.out.print("Enter choice: ");
-        int choice = getIntInput();
-
-        if (choice != 0) {
-            System.out.println(">> Feature selected. (Control logic integration goes here)");
-        }
+        new HousekeepingUI(housekeepingControl, scanner).run();
     }
 
     private void displayFrontDeskMenu() {
@@ -94,6 +94,18 @@ public class MainMenuUI {
         if (choice != 0) {
             System.out.println(">> Feature selected. (Control logic integration goes here)");
         }
+    }
+
+    /**
+     * Temporary sample data so the Walk-In module has rooms to allocate.
+     * Replace/extend once the Room Management module owns this list.
+     */
+    private void seedRooms() {
+        roomList.insertLast(new Room("101", "Ready for Check-In", true));
+        roomList.insertLast(new Room("102", "Ready for Check-In", true));
+        roomList.insertLast(new Room("103", "Dirty", true));
+        roomList.insertLast(new Room("104", "Ready for Check-In", false));
+        roomList.insertLast(new Room("105", "Ready for Check-In", true));
     }
 
     private int getIntInput() {
