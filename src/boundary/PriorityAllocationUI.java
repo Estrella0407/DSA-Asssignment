@@ -1,5 +1,4 @@
 /*
- * Course: BMCS2063 Data Structures and Algorithms
  * Module: VIP & Loyalty Tier Priority Room Allocation (Boundary UI Component)
  * Author: WEI XIN
  * 
@@ -191,18 +190,26 @@ public class PriorityAllocationUI {
         System.out.println("5. Silver");
         System.out.print("Choose option (0-5): ");
         int choice = getIntInput();
-        if (choice == 0) return null;
+        if (choice == 0) {
+            return null;
+        }
         return parseTier(choice);
     }
 
     private String parseTier(int choice) {
         switch (choice) {
-            case 1: return "Diamond";
-            case 2: return "Platinum";
-            case 3: return "Elite";
-            case 4: return "Gold";
-            case 5: return "Silver";
-            default: return "Standard";
+            case 1:
+                return "Diamond";
+            case 2:
+                return "Platinum";
+            case 3:
+                return "Elite";
+            case 4:
+                return "Gold";
+            case 5:
+                return "Silver";
+            default:
+                return "Standard";
         }
     }
 

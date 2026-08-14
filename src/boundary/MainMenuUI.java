@@ -1,7 +1,6 @@
 /*
- * Course: BMCS2063 Data Structures and Algorithms
  * Module: System Navigation & Subsystem Orchestration (Boundary UI Component)
- * Author: TARUMT Resorts Development Team
+ * Author: ALL
  * 
  * Description:
  * Boundary class for displaying the main menu, managing top-level navigation,

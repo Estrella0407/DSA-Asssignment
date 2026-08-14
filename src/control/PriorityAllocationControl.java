@@ -1,5 +1,4 @@
 /*
- * Course: BMCS2063 Data Structures and Algorithms
  * Module: VIP & Loyalty Tier Priority Room Allocation (Control Component)
  * Author: WEI XIN
  * 
@@ -73,8 +72,8 @@ public class PriorityAllocationControl {
     }
 
     /**
-     * Enqueue a new VIP guest. The priority queue automatically reorganizes
-     * so that highest tier / loyalty points sits at index 0.
+     * Enqueue a new VIP guest. The priority queue automatically reorganizes so
+     * that highest tier / loyalty points sits at index 0.
      */
     public boolean addPriorityGuest(Guest guest) {
         if (guest != null && guest.getMemberProfile() != null) {
@@ -108,8 +107,8 @@ public class PriorityAllocationControl {
     }
 
     /**
-     * Automatically search for the first available, clean room and allocate
-     * to the highest-priority VIP guest waiting in the queue.
+     * Automatically search for the first available, clean room and allocate to
+     * the highest-priority VIP guest waiting in the queue.
      */
     public Guest allocateFirstAvailableRoom() {
         if (priorityQueue.isEmpty()) {
@@ -182,9 +181,13 @@ public class PriorityAllocationControl {
         return nextGuest;
     }
 
-    /** Linear search for the first available, ready-for-check-in room. */
+    /**
+     * Linear search for the first available, ready-for-check-in room.
+     */
     private Room findFirstAvailableCleanRoom() {
-        if (roomList == null) return null;
+        if (roomList == null) {
+            return null;
+        }
         for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
             Room r = roomList.getEntry(i);
             if (r != null && r.isRoomAvailable() && STATUS_READY.equalsIgnoreCase(r.getCleaningStatus())) {
@@ -194,9 +197,13 @@ public class PriorityAllocationControl {
         return null;
     }
 
-    /** Linear search for room by number. */
+    /**
+     * Linear search for room by number.
+     */
     public Room findRoomByNumber(String roomNumber) {
-        if (roomList == null || roomNumber == null) return null;
+        if (roomList == null || roomNumber == null) {
+            return null;
+        }
         String target = roomNumber.trim();
         for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
             Room r = roomList.getEntry(i);
@@ -224,7 +231,6 @@ public class PriorityAllocationControl {
     // Combines: Linear Search + Multi-Criteria Filter (Tier & Min Points) +
     // Manual Insertion Sort (by Points descending / Name)
     // =========================================================================
-
     public String generateTierDistributionReport(String tierFilter, Integer minPointsFilter) {
         StringBuilder sb = new StringBuilder();
         sb.append("\n=========================================================================================\n");
@@ -299,7 +305,6 @@ public class PriorityAllocationControl {
     // REPORT 2: Active VIP Priority Waitlist & Real-Time Audit Report
     // Combines: Linear Search + Multi-Criteria Filter + Manual Insertion Sort
     // =========================================================================
-
     public String generatePriorityWaitlistReport(String tierFilter, Integer minPointsFilter) {
         StringBuilder sb = new StringBuilder();
         sb.append("\n=========================================================================================\n");
@@ -352,8 +357,12 @@ public class PriorityAllocationControl {
     }
 
     private boolean shouldSwapVipReport(Guest first, Guest second) {
-        if (first == null || first.getMemberProfile() == null) return false;
-        if (second == null || second.getMemberProfile() == null) return true;
+        if (first == null || first.getMemberProfile() == null) {
+            return false;
+        }
+        if (second == null || second.getMemberProfile() == null) {
+            return true;
+        }
 
         Member m1 = first.getMemberProfile();
         Member m2 = second.getMemberProfile();

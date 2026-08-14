@@ -142,8 +142,8 @@ public class WalkInRegistrationUI {
         int typeChoice = readInt("Choose type filter: ");
         String typeFilter = null;
         if (typeChoice == 1) {
-            typeFilter = "Walk-in"; 
-        }else if (typeChoice == 2) {
+            typeFilter = "Walk-in";
+        } else if (typeChoice == 2) {
             typeFilter = "Booked";
         }
 
@@ -151,8 +151,8 @@ public class WalkInRegistrationUI {
         int statusChoice = readInt("Choose status filter: ");
         Boolean statusFilter = null;
         if (statusChoice == 1) {
-            statusFilter = Boolean.TRUE; 
-        }else if (statusChoice == 2) {
+            statusFilter = Boolean.TRUE;
+        } else if (statusChoice == 2) {
             statusFilter = Boolean.FALSE;
         }
 
@@ -165,8 +165,8 @@ public class WalkInRegistrationUI {
         int typeChoice = readInt("Choose type filter: ");
         String typeFilter = null;
         if (typeChoice == 1) {
-            typeFilter = "Walk-in"; 
-        }else if (typeChoice == 2) {
+            typeFilter = "Walk-in";
+        } else if (typeChoice == 2) {
             typeFilter = "Booked";
         }
 
