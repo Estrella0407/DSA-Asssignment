@@ -1,4 +1,11 @@
-
+/*
+ * Module: Non-Linear ADT (Dictionary / Map ADT Specification)
+ * Author: MELAINE YANG MEI
+ * 
+ * Description:
+ * Interface for a Dictionary / Key-Value Map ADT.
+ * Defines operations for key-value association, fast lookup, removal, and value retrieval.
+ */
 package adt;
 
 public interface Dictionary<K, V> {

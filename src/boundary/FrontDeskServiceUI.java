@@ -1,59 +1,70 @@
-/**
- *
- * @author Melaine Yang Mei
+/*
+ * Module: Front-Desk Service (Boundary UI Component)
+ * Author: MELAINE YANG MEI
+ * 
+ * Description:
+ * Boundary class handling console user interaction for Front-Desk Service inquiries,
+ * room/billing lookups using 8-digit confirmation numbers, and management reporting.
  */
 package boundary;
+
+import control.FrontDeskServiceControl;
 import entity.Guest;
 import entity.Room;
-import control.FrontDeskServiceControl;
 import java.util.Scanner;
 
 public class FrontDeskServiceUI {
-        private FrontDeskServiceControl controller;
-        private Scanner scanner;
-        
-        public FrontDeskServiceUI(FrontDeskServiceControl controller, Scanner scanner){
-            this.controller = controller;
-            this.scanner = new Scanner(System.in);     
+
+    private FrontDeskServiceControl controller;
+    private Scanner scanner;
+
+    public FrontDeskServiceUI(FrontDeskServiceControl controller, Scanner scanner) {
+        this.controller = controller;
+        this.scanner = scanner;
     }
-        
-        public void run(){
-            int choice;
-            do{
-                System.out.println("~~~~~~~~~~FRONT DESK SERVICE~~~~~~~~~~\n");
-                System.out.println("1. Search Guest Information\n");
-                System.out.println("2. Search Room\n");
-                System.out.println("3. Billing Details\n");
-                System.out.println("4. Report 1\n");
-                System.out.println("5. Report 2\n");
-                System.out.println("0. Exit\n");
-                System.out.print("\nPlease select an option:");
-                
-                choice = readInteger();
-                
-                switch(choice){
-                    case 1:
-                        searchGuest();
-                        break;
-                    case 2:
-                        checkRoom();
-                        break;
-                    case 3:
-                        checkBilling();
-                        break;
-                    case 4:
-                        frontDeskReport1();
-                        break;
-                    case 5:
-                        frontDeskReport2();
-                    case 0:
-                        System.out.println("Okay bye");
-                    default:
-                        System.out.println("Invalid choice! :(");
-                }
-            }while(choice != 0);
-            
-        }
+
+    public void run() {
+        int choice;
+        do {
+            System.out.println("\n==================================================");
+            System.out.println("              FRONT DESK SERVICE                  ");
+            System.out.println("==================================================");
+            System.out.println("1. Search Guest Information (8-digit Confirmation)");
+            System.out.println("2. Search Room Availability");
+            System.out.println("3. Query Billing Details");
+            System.out.println("4. Generate Room Status Report");
+            System.out.println("5. Generate Guest Occupancy Report");
+            System.out.println("0. Back to Main Menu");
+            System.out.println("--------------------------------------------------");
+            System.out.print("Please select an option: ");
+
+            choice = readInteger();
+
+            switch (choice) {
+                case 1:
+                    searchGuest();
+                    break;
+                case 2:
+                    checkRoom();
+                    break;
+                case 3:
+                    checkBilling();
+                    break;
+                case 4:
+                    frontDeskReport1();
+                    break;
+                case 5:
+                    frontDeskReport2();
+                    break;
+                case 0:
+                    System.out.println("Returning to Main Menu...");
+                    break;
+                default:
+                    System.out.println("Invalid choice! Please enter a number between 0 and 5.");
+                    break;
+            }
+        } while (choice != 0);
+    }
         
         public void searchGuest(){
             System.out.print("Enter 8-digit confirmation number: ");

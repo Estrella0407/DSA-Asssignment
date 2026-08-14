@@ -1,19 +1,18 @@
-/*Front-desk agents handle hundreds of simultaneous calls and walk-in inquiries. 
-Query types involve room availability, billing details, or guest identification 
-using a unique 8-digit confirmation number. Implement an efficient search algorithm 
-capable of instantly retrieving complete guest information. 
-*/
-
+/*
+ * Module: Front-Desk Service (Control Component)
+ * Author: MELAINE YANG MEI
+ * 
+ * Description:
+ * Control class implementing business logic for Front-Desk Service inquiries.
+ * Uses custom Dictionary / HashTable ADT to provide instant O(1) retrieval for guest identification,
+ * room availability checks, and billing details.
+ */
 package control;
+
 import adt.Dictionary;
-import adt.HashTable;
 import entity.Guest;
 import entity.Room;
 
-/**
- *
- * @author Melaine Yang Mei
- */
 public class FrontDeskServiceControl {
     private Dictionary<String, Guest> guestTable;
     private Dictionary<String, Room> roomTable;

@@ -1,4 +1,11 @@
-
+/*
+ * Module: Non-Linear ADT (Hash Table ADT Implementation)
+ * Author: MELAINE YANG MEI
+ * 
+ * Description:
+ * Separate-chaining Hash Table implementation of the custom Dictionary ADT.
+ * Provides O(1) average time complexity for searching, inserting, and deleting records.
+ */
 package adt;
 
 public class HashTable<K, V> implements Dictionary<K, V>{
