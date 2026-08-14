@@ -2,8 +2,12 @@ package boundary;
 
 import adt.ADT;
 import adt.LinkedADT;
+import adt.Dictionary;
+import adt.HashTable;
 import control.WalkInRegistrationControl;
+import control.FrontDeskServiceControl;
 import entity.Room;
+import entity.Guest;
 import java.util.Scanner;
 
 /**
@@ -16,13 +20,19 @@ public class MainMenuUI {
 
     private final Scanner scanner;
     private final ADT<Room> roomList;
+    private final Dictionary<String, Guest> guestTable;
+    private final Dictionary<String, Room> roomTable;
     private final WalkInRegistrationControl walkInControl;
+    private final FrontDeskServiceControl frontDeskControl;
 
     public MainMenuUI() {
         this.scanner = new Scanner(System.in);
         this.roomList = new LinkedADT<>();
+        this.guestTable = new HashTable<>();
+        this.roomTable = new HashTable<>();
         seedRooms();
         this.walkInControl = new WalkInRegistrationControl(roomList);
+        this.frontDeskControl = new FrontDeskServiceControl(guestTable, roomTable);
     }
 
     public void displayMainMenu() {
@@ -97,16 +107,7 @@ public class MainMenuUI {
     }
 
     private void displayFrontDeskMenu() {
-        System.out.println("\n--- [Module 4] Front-Desk Service ---");
-        System.out.println("1. Report 1");
-        System.out.println("2. Report 2");
-        System.out.println("0. Back to Main Menu");
-        System.out.print("Enter choice: ");
-        int choice = getIntInput();
-
-        if (choice != 0) {
-            System.out.println(">> Feature selected. (Control logic integration goes here)");
-        }
+       new FrontDeskServiceUI(frontDeskControl, scanner).run();
     }
 
     /**
