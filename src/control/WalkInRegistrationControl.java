@@ -170,15 +170,19 @@ public class WalkInRegistrationControl {
             Guest g = guestRecords.getEntry(i);
             if (g.getConfirmationNumber().equalsIgnoreCase(cleanConf)) {
                 if (!g.getCheckInStatus()) {
+                    String reason = Guest.STATUS_CHECKED_OUT.equals(g.getStatus())
+                            ? "already checked out"
+                            : "not currently checked in";
                     throw new IllegalStateException(
-                            "Guest \"" + g.getName() + "\" is not currently checked in.");
+                            "Guest \"" + g.getName() + "\" is " + reason + ".");
                 }
-                g.checkOut();
                 Room room = g.getAssignedRoom();
                 if (room != null) {
                     room.setAvailability(true);
                     room.setCleaningStatus("Dirty");
                 }
+                g.checkOut();
+                g.assignRoom(null); // guest no longer occupies this room
                 return true;
             }
         }
@@ -189,17 +193,17 @@ public class WalkInRegistrationControl {
     // Combines: linear search (filter by type/status) + insertion sort (by name)
     /**
      * @param typeFilter null for all types, or "Walk-in"/"Booked"
-     * @param checkedInFilter null for all guests, TRUE for checked-in only,
-     * FALSE for not-currently-checked-in only
+     * @param statusFilter null for all guests, or one of Guest.STATUS_PENDING,
+     * Guest.STATUS_CHECKED_IN, Guest.STATUS_CHECKED_OUT
      */
-    public void printGuestCheckInReport(String typeFilter, Boolean checkedInFilter) {
+    public void printGuestCheckInReport(String typeFilter, String statusFilter) {
         // Step 1: search/filter matching guests into a temporary array.
         Guest[] filtered = new Guest[guestRecords.getNumberOfEntries()];
         int count = 0;
         for (int i = 0; i < guestRecords.getNumberOfEntries(); i++) {
             Guest g = guestRecords.getEntry(i);
             boolean matchesType = (typeFilter == null) || g.getType().equalsIgnoreCase(typeFilter);
-            boolean matchesStatus = (checkedInFilter == null) || g.getCheckInStatus() == checkedInFilter;
+            boolean matchesStatus = (statusFilter == null) || g.getStatus().equalsIgnoreCase(statusFilter);
             if (matchesType && matchesStatus) {
                 filtered[count++] = g;
             }
@@ -220,7 +224,7 @@ public class WalkInRegistrationControl {
         System.out.println("\n=====================================================================");
         System.out.println("            GUEST REGISTRATION & CHECK-IN STATUS REPORT");
         System.out.println(" Filter -> Type: " + (typeFilter == null ? "ALL" : typeFilter)
-                + " | Status: " + (checkedInFilter == null ? "ALL" : (checkedInFilter ? "Checked-In" : "Pending")));
+                + " | Status: " + (statusFilter == null ? "ALL" : statusFilter));
         System.out.println("=====================================================================");
         System.out.printf("%-10s %-18s %-10s %-12s %-8s%n",
                 "Conf. No", "Name", "Type", "Status", "Room");
@@ -229,8 +233,7 @@ public class WalkInRegistrationControl {
             Guest g = filtered[i];
             String room = (g.getAssignedRoom() == null) ? "-" : g.getAssignedRoom().getRoomNumber();
             System.out.printf("%-10s %-18s %-10s %-12s %-8s%n",
-                    g.getConfirmationNumber(), g.getName(), g.getType(),
-                    g.getCheckInStatus() ? "Checked-In" : "Pending", room);
+                    g.getConfirmationNumber(), g.getName(), g.getType(), g.getStatus(), room);
         }
         System.out.println("---------------------------------------------------------------------");
         System.out.println(" Total matching guests: " + count);
