@@ -1,6 +1,6 @@
 /*
  * Module: Shared Entity Component (Guest & Reservation)
- * Author: WEI XIN
+ * Author: WEI XIN & LAW QINQI
  * 
  * Description:
  * Entity class representing a Guest / Reservation profile in TARUMT Resorts.
