@@ -74,8 +74,8 @@ public class WalkInRegistrationUI {
         System.out.println("2. Register Standard Booking Guest");
         System.out.println("3. Process Next Guest in Queue (assign room + check-in)");
         System.out.println("4. Check-Out Guest");
-        System.out.println("5. Print Guest Check-In Status Report");
-        System.out.println("6. Print Guest Walk-In Queue Summary Report");
+        System.out.println("5. Print Guest Status Report");
+        System.out.println("6. Print Guest Queue Summary Report");
         System.out.println("0. Exit");
     }
 
@@ -147,13 +147,15 @@ public class WalkInRegistrationUI {
             typeFilter = "Booked";
         }
 
-        System.out.println("Status filter: (0: ALL | 1: Checked-In | 2: Pending)");
+        System.out.println("Status filter: (0: ALL | 1: Pending | 2: Checked-In | 3: Checked-Out)");
         int statusChoice = readInt("Choose status filter: ");
-        Boolean statusFilter = null;
+        String statusFilter = null;
         if (statusChoice == 1) {
-            statusFilter = Boolean.TRUE;
+            statusFilter = Guest.STATUS_PENDING;
         } else if (statusChoice == 2) {
-            statusFilter = Boolean.FALSE;
+            statusFilter = Guest.STATUS_CHECKED_IN;
+        } else if (statusChoice == 3) {
+            statusFilter = Guest.STATUS_CHECKED_OUT;
         }
 
         control.printGuestCheckInReport(typeFilter, statusFilter);
