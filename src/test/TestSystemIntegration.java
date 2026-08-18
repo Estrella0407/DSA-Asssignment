@@ -88,8 +88,8 @@ public class TestSystemIntegration {
         System.out.println(priorityControl.generatePriorityWaitlistReport(null, null));
         walkInControl.printGuestCheckInReport(null, null);
         walkInControl.printQueueSummaryReport(null);
-        housekeepingControl.printRoomCleaningStatusReport(null, null);
-        housekeepingControl.printTaskActivityReport(null, null, null);
+        housekeepingControl.generateRoomCleaningStatusReport(null, null);
+        housekeepingControl.generateTaskActivityReport(null, null, null);
 
         System.out.println("\n>> ALL AUTOMATED VERIFICATION TESTS PASSED SUCCESSFULLY! <<\n");
     }

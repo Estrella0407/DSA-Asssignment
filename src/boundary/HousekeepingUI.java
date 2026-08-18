@@ -12,6 +12,7 @@ import adt.DoublyLinkedListInterface;
 import control.HousekeepingControl;
 import entity.HousekeepingTask;
 import entity.Room;
+import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 
 public class HousekeepingUI {
@@ -280,7 +281,10 @@ public class HousekeepingUI {
 
         Boolean availabilityFilter = availabilityChoice == 0
                 ? null : availabilityChoice == 1;
-        control.printRoomCleaningStatusReport(statusFilter, availabilityFilter);
+
+        HousekeepingControl.RoomStatusReport report
+                = control.generateRoomCleaningStatusReport(statusFilter, availabilityFilter);
+        displayRoomStatusReport(report);
     }
 
     private void generateTaskActivityReport() {
@@ -305,7 +309,87 @@ public class HousekeepingUI {
         }
 
         String statusFilter = statusFromChoice(statusChoice, true);
-        control.printTaskActivityReport(staffFilter, roomFilter, statusFilter);
+        HousekeepingControl.TaskActivityReport report
+                = control.generateTaskActivityReport(staffFilter, roomFilter, statusFilter);
+        displayTaskActivityReport(report);
+    }
+
+    private void displayRoomStatusReport(HousekeepingControl.RoomStatusReport report) {
+        System.out.println("\n=======================================================================");
+        System.out.println("                    ROOM CLEANING STATUS REPORT");
+        System.out.println("=======================================================================");
+        System.out.println("Filter -> Status: "
+                + (report.getStatusFilter() == null ? "ALL" : report.getStatusFilter())
+                + " | Availability: "
+                + (report.getAvailabilityFilter() == null ? "ALL"
+                        : (report.getAvailabilityFilter() ? "Available" : "Unavailable")));
+        System.out.println("-----------------------------------------------------------------------");
+        System.out.printf("%-10s %-26s %-16s %-22s%n",
+                "Room No.", "Cleaning Status", "Availability", "Next Status");
+        System.out.println("-----------------------------------------------------------------------");
+
+        Room[] rooms = report.getRooms();
+        for (int i = 0; i < rooms.length; i++) {
+            Room room = rooms[i];
+            String next = control.getNextExpectedStatus(room);
+            System.out.printf("%-10s %-26s %-16s %-22s%n",
+                    room.getRoomNumber(), room.getCleaningStatus(),
+                    room.isAvailable() ? "Available" : "Unavailable",
+                    next == null ? "-" : next);
+        }
+
+        System.out.println("-----------------------------------------------------------------------");
+        System.out.println("Matching rooms              : " + report.getMatchCount());
+        System.out.println("-----------------------------------------------------------------------");
+        System.out.println("MANAGEMENT SUMMARY (ALL ROOMS)");
+        System.out.println("Total rooms                 : " + report.getTotalRooms());
+        System.out.println("Dirty                       : " + report.getDirtyCount());
+        System.out.println("Cleaning In Progress        : " + report.getCleaningCount());
+        System.out.println("Inspected                   : " + report.getInspectedCount());
+        System.out.println("Ready for Check-In          : " + report.getReadyCount());
+        System.out.println("Available / Unavailable     : " + report.getAvailableCount()
+                + " / " + report.getUnavailableCount());
+        System.out.printf("Ready-for-check-in rate     : %.2f%%%n", report.getReadyRate());
+        System.out.println("=======================================================================\n");
+    }
+
+    private void displayTaskActivityReport(HousekeepingControl.TaskActivityReport report) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+        System.out.println("\n========================================================================================================");
+        System.out.println("                              HOUSEKEEPING TASK ACTIVITY REPORT");
+        System.out.println("========================================================================================================");
+        System.out.println("Filters -> Staff: "
+                + (report.getStaffFilter() == null ? "ALL" : report.getStaffFilter())
+                + " | Room: " + (report.getRoomFilter() == null ? "ALL" : report.getRoomFilter())
+                + " | New Status: "
+                + (report.getNewStatusFilter() == null ? "ALL" : report.getNewStatusFilter()));
+        System.out.println("--------------------------------------------------------------------------------------------------------");
+        System.out.printf("%-7s %-7s %-16s %-22s %-22s %-17s%n",
+                "Task", "Room", "Staff", "Previous", "New Status", "Date/Time");
+        System.out.println("--------------------------------------------------------------------------------------------------------");
+
+        HousekeepingTask[] tasks = report.getTasks();
+        for (int i = 0; i < tasks.length; i++) {
+            HousekeepingTask task = tasks[i];
+            String room = task.getRoom() == null ? "-" : task.getRoom().getRoomNumber();
+            String time = task.getTaskDateTime() == null ? "-"
+                    : task.getTaskDateTime().format(formatter);
+            System.out.printf("%-7s %-7s %-16s %-22s %-22s %-17s%n",
+                    task.getTaskId(), room, task.getStaffName(),
+                    task.getPreviousStatus(), task.getNewStatus(), time);
+        }
+
+        System.out.println("--------------------------------------------------------------------------------------------------------");
+        System.out.println("Matching tasks              : " + report.getMatchCount());
+        System.out.println("--------------------------------------------------------------------------------------------------------");
+        System.out.println("MANAGEMENT SUMMARY (ALL RECORDED TASKS)");
+        System.out.println("Total recorded tasks        : " + report.getTotalTasks());
+        System.out.println("Completed to Ready status   : " + report.getCompletedToReady());
+        System.out.println("Resets back to Dirty        : " + report.getResetToDirty());
+        System.out.println("Most active staff           : " + report.getMostActiveStaff());
+        System.out.println("Tasks by most active staff  : " + report.getMostActiveStaffCount());
+        System.out.println("========================================================================================================\n");
     }
 
     private String statusFromChoice(int choice, boolean allowAll) {
