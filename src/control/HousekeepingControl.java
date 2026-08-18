@@ -14,7 +14,6 @@ import adt.DoublyLinkedListInterface;
 import entity.HousekeepingTask;
 import entity.Room;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 public class HousekeepingControl {
 
@@ -232,64 +231,103 @@ public class HousekeepingControl {
     }
 
     /**
-     * Report 1: multiple-criteria filtering followed by manual insertion sort.
+     * Report 1 processing: performs a linear scan using the custom ADT,
+     * applies multiple criteria, manually sorts the matching rooms, and
+     * computes management summary metrics. Display is intentionally left to
+     * the Boundary class to follow the ECB architecture.
      */
-    public void printRoomCleaningStatusReport(String statusFilter, Boolean availabilityFilter) {
-        Room[] filtered = new Room[roomList.getNumberOfEntries()];
-        int count = 0;
+    public RoomStatusReport generateRoomCleaningStatusReport(String statusFilter,
+            Boolean availabilityFilter) {
+        Room[] working = new Room[roomList.getNumberOfEntries()];
+        int matchCount = 0;
+
+        int dirtyCount = 0;
+        int cleaningCount = 0;
+        int inspectedCount = 0;
+        int readyCount = 0;
+        int availableCount = 0;
+        int unavailableCount = 0;
 
         for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
             Room room = roomList.getEntry(i);
+            if (room == null) {
+                continue;
+            }
+
+            String status = normalizeStatus(room.getCleaningStatus());
+            if (status.equalsIgnoreCase(STATUS_DIRTY)) {
+                dirtyCount++;
+            } else if (status.equalsIgnoreCase(STATUS_CLEANING)) {
+                cleaningCount++;
+            } else if (status.equalsIgnoreCase(STATUS_INSPECTED)) {
+                inspectedCount++;
+            } else if (status.equalsIgnoreCase(STATUS_READY)) {
+                readyCount++;
+            }
+
+            if (room.isAvailable()) {
+                availableCount++;
+            } else {
+                unavailableCount++;
+            }
+
             boolean matchesStatus = statusFilter == null
-                    || room.getCleaningStatus().equalsIgnoreCase(statusFilter);
+                    || status.equalsIgnoreCase(statusFilter);
             boolean matchesAvailability = availabilityFilter == null
                     || room.isAvailable() == availabilityFilter;
 
             if (matchesStatus && matchesAvailability) {
-                filtered[count++] = room;
+                working[matchCount++] = room;
             }
         }
 
-        insertionSortRooms(filtered, count);
-
-        System.out.println("\n=======================================================================");
-        System.out.println("                    ROOM CLEANING STATUS REPORT");
-        System.out.println("=======================================================================");
-        System.out.println("Filter -> Status: " + (statusFilter == null ? "ALL" : statusFilter)
-                + " | Availability: " + (availabilityFilter == null ? "ALL"
-                        : (availabilityFilter ? "Available" : "Unavailable")));
-        System.out.println("-----------------------------------------------------------------------");
-        System.out.printf("%-10s %-26s %-16s %-22s%n",
-                "Room No.", "Cleaning Status", "Availability", "Next Status");
-        System.out.println("-----------------------------------------------------------------------");
-
-        for (int i = 0; i < count; i++) {
-            Room room = filtered[i];
-            String next = getNextExpectedStatus(room);
-            System.out.printf("%-10s %-26s %-16s %-22s%n",
-                    room.getRoomNumber(), room.getCleaningStatus(),
-                    room.isAvailable() ? "Available" : "Unavailable",
-                    next == null ? "-" : next);
+        insertionSortRooms(working, matchCount);
+        Room[] matches = new Room[matchCount];
+        for (int i = 0; i < matchCount; i++) {
+            matches[i] = working[i];
         }
 
-        System.out.println("-----------------------------------------------------------------------");
-        System.out.println("Total matching rooms: " + count);
-        System.out.println("=======================================================================\n");
+        int totalRooms = roomList.getNumberOfEntries();
+        double readyRate = totalRooms == 0 ? 0.0 : (readyCount * 100.0) / totalRooms;
+
+        return new RoomStatusReport(statusFilter, availabilityFilter, matches,
+                totalRooms, dirtyCount, cleaningCount, inspectedCount, readyCount,
+                availableCount, unavailableCount, readyRate);
     }
 
     /**
-     * Report 2: multiple-criteria task filtering followed by manual insertion
-     * sort. Criteria: staff + room + new status.
+     * Report 2 processing: performs a linear scan using the custom ADT,
+     * applies staff + room + status filters, manually sorts the matching
+     * tasks, and computes activity summary metrics.
      */
-    public void printTaskActivityReport(String staffFilter, String roomFilter,
-            String newStatusFilter) {
-        HousekeepingTask[] filtered = new HousekeepingTask[taskLog.getNumberOfEntries()];
-        int count = 0;
+    public TaskActivityReport generateTaskActivityReport(String staffFilter,
+            String roomFilter, String newStatusFilter) {
+        HousekeepingTask[] working = new HousekeepingTask[taskLog.getNumberOfEntries()];
+        int matchCount = 0;
+        int completedToReady = 0;
+        int resetToDirty = 0;
+
+        String mostActiveStaff = "-";
+        int mostActiveStaffCount = 0;
 
         for (int i = 0; i < taskLog.getNumberOfEntries(); i++) {
             HousekeepingTask task = taskLog.getEntry(i);
-            String taskRoom = task.getRoom() == null ? "" : task.getRoom().getRoomNumber();
+            if (task == null) {
+                continue;
+            }
 
+            if (task.getNewStatus() != null
+                    && task.getNewStatus().equalsIgnoreCase(STATUS_READY)) {
+                completedToReady++;
+            }
+            if (task.getNewStatus() != null
+                    && task.getNewStatus().equalsIgnoreCase(STATUS_DIRTY)
+                    && task.getPreviousStatus() != null
+                    && !task.getPreviousStatus().equalsIgnoreCase(STATUS_DIRTY)) {
+                resetToDirty++;
+            }
+
+            String taskRoom = task.getRoom() == null ? "" : task.getRoom().getRoomNumber();
             boolean matchesStaff = staffFilter == null
                     || task.getStaffName().equalsIgnoreCase(staffFilter);
             boolean matchesRoom = roomFilter == null
@@ -298,37 +336,132 @@ public class HousekeepingControl {
                     || task.getNewStatus().equalsIgnoreCase(newStatusFilter);
 
             if (matchesStaff && matchesRoom && matchesStatus) {
-                filtered[count++] = task;
+                working[matchCount++] = task;
             }
         }
 
-        insertionSortTasks(filtered, count);
+        // Determine the most active staff member without using Java Collections.
+        for (int i = 0; i < taskLog.getNumberOfEntries(); i++) {
+            HousekeepingTask candidate = taskLog.getEntry(i);
+            if (candidate == null || candidate.getStaffName() == null
+                    || candidate.getStaffName().trim().isEmpty()) {
+                continue;
+            }
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        System.out.println("\n========================================================================================================");
-        System.out.println("                              HOUSEKEEPING TASK ACTIVITY REPORT");
-        System.out.println("========================================================================================================");
-        System.out.println("Filters -> Staff: " + (staffFilter == null ? "ALL" : staffFilter)
-                + " | Room: " + (roomFilter == null ? "ALL" : roomFilter)
-                + " | New Status: " + (newStatusFilter == null ? "ALL" : newStatusFilter));
-        System.out.println("--------------------------------------------------------------------------------------------------------");
-        System.out.printf("%-7s %-7s %-16s %-22s %-22s %-17s%n",
-                "Task", "Room", "Staff", "Previous", "New Status", "Date/Time");
-        System.out.println("--------------------------------------------------------------------------------------------------------");
+            int candidateCount = 0;
+            for (int j = 0; j < taskLog.getNumberOfEntries(); j++) {
+                HousekeepingTask other = taskLog.getEntry(j);
+                if (other != null && other.getStaffName() != null
+                        && other.getStaffName().equalsIgnoreCase(candidate.getStaffName())) {
+                    candidateCount++;
+                }
+            }
 
-        for (int i = 0; i < count; i++) {
-            HousekeepingTask task = filtered[i];
-            String room = task.getRoom() == null ? "-" : task.getRoom().getRoomNumber();
-            String time = task.getTaskDateTime() == null ? "-"
-                    : task.getTaskDateTime().format(formatter);
-            System.out.printf("%-7s %-7s %-16s %-22s %-22s %-17s%n",
-                    task.getTaskId(), room, task.getStaffName(),
-                    task.getPreviousStatus(), task.getNewStatus(), time);
+            if (candidateCount > mostActiveStaffCount) {
+                mostActiveStaff = candidate.getStaffName();
+                mostActiveStaffCount = candidateCount;
+            }
         }
 
-        System.out.println("--------------------------------------------------------------------------------------------------------");
-        System.out.println("Total matching tasks: " + count);
-        System.out.println("========================================================================================================\n");
+        insertionSortTasks(working, matchCount);
+        HousekeepingTask[] matches = new HousekeepingTask[matchCount];
+        for (int i = 0; i < matchCount; i++) {
+            matches[i] = working[i];
+        }
+
+        return new TaskActivityReport(staffFilter, roomFilter, newStatusFilter,
+                matches, taskLog.getNumberOfEntries(), completedToReady, resetToDirty,
+                mostActiveStaff, mostActiveStaffCount);
+    }
+
+    /**
+     * Read-only data returned by Report 1.
+     */
+    public static class RoomStatusReport {
+
+        private final String statusFilter;
+        private final Boolean availabilityFilter;
+        private final Room[] rooms;
+        private final int totalRooms;
+        private final int dirtyCount;
+        private final int cleaningCount;
+        private final int inspectedCount;
+        private final int readyCount;
+        private final int availableCount;
+        private final int unavailableCount;
+        private final double readyRate;
+
+        private RoomStatusReport(String statusFilter, Boolean availabilityFilter,
+                Room[] rooms, int totalRooms, int dirtyCount, int cleaningCount,
+                int inspectedCount, int readyCount, int availableCount,
+                int unavailableCount, double readyRate) {
+            this.statusFilter = statusFilter;
+            this.availabilityFilter = availabilityFilter;
+            this.rooms = rooms;
+            this.totalRooms = totalRooms;
+            this.dirtyCount = dirtyCount;
+            this.cleaningCount = cleaningCount;
+            this.inspectedCount = inspectedCount;
+            this.readyCount = readyCount;
+            this.availableCount = availableCount;
+            this.unavailableCount = unavailableCount;
+            this.readyRate = readyRate;
+        }
+
+        public String getStatusFilter() { return statusFilter; }
+        public Boolean getAvailabilityFilter() { return availabilityFilter; }
+        public Room[] getRooms() { return rooms; }
+        public int getMatchCount() { return rooms.length; }
+        public int getTotalRooms() { return totalRooms; }
+        public int getDirtyCount() { return dirtyCount; }
+        public int getCleaningCount() { return cleaningCount; }
+        public int getInspectedCount() { return inspectedCount; }
+        public int getReadyCount() { return readyCount; }
+        public int getAvailableCount() { return availableCount; }
+        public int getUnavailableCount() { return unavailableCount; }
+        public double getReadyRate() { return readyRate; }
+    }
+
+    /**
+     * Read-only data returned by Report 2.
+     */
+    public static class TaskActivityReport {
+
+        private final String staffFilter;
+        private final String roomFilter;
+        private final String newStatusFilter;
+        private final HousekeepingTask[] tasks;
+        private final int totalTasks;
+        private final int completedToReady;
+        private final int resetToDirty;
+        private final String mostActiveStaff;
+        private final int mostActiveStaffCount;
+
+        private TaskActivityReport(String staffFilter, String roomFilter,
+                String newStatusFilter, HousekeepingTask[] tasks, int totalTasks,
+                int completedToReady, int resetToDirty, String mostActiveStaff,
+                int mostActiveStaffCount) {
+            this.staffFilter = staffFilter;
+            this.roomFilter = roomFilter;
+            this.newStatusFilter = newStatusFilter;
+            this.tasks = tasks;
+            this.totalTasks = totalTasks;
+            this.completedToReady = completedToReady;
+            this.resetToDirty = resetToDirty;
+            this.mostActiveStaff = mostActiveStaff;
+            this.mostActiveStaffCount = mostActiveStaffCount;
+        }
+
+        public String getStaffFilter() { return staffFilter; }
+        public String getRoomFilter() { return roomFilter; }
+        public String getNewStatusFilter() { return newStatusFilter; }
+        public HousekeepingTask[] getTasks() { return tasks; }
+        public int getMatchCount() { return tasks.length; }
+        public int getTotalTasks() { return totalTasks; }
+        public int getCompletedToReady() { return completedToReady; }
+        public int getResetToDirty() { return resetToDirty; }
+        public String getMostActiveStaff() { return mostActiveStaff; }
+        public int getMostActiveStaffCount() { return mostActiveStaffCount; }
     }
 
     private HousekeepingTask recordStatusChange(Room room, String staff,
