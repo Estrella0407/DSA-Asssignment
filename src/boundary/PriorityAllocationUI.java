@@ -75,12 +75,32 @@ public class PriorityAllocationUI {
     private void addVIPReservation() {
         System.out.print("Enter 8-digit Confirmation Number: ");
         String conf = scanner.nextLine().trim();
+        if (conf.isEmpty()) {
+            System.out.println(">> Validation Error: Confirmation number cannot be empty.");
+            return;
+        }
+        if (control.isConfirmationNumberRegistered(conf)) {
+            System.out.println(">> Validation Error: Confirmation number \"" + conf + "\" is already registered.");
+            return;
+        }
 
         System.out.print("Enter Guest Name: ");
         String name = scanner.nextLine().trim();
+        if (name.isEmpty()) {
+            System.out.println(">> Validation Error: Guest name cannot be empty.");
+            return;
+        }
 
         System.out.print("Enter Member ID: ");
         String memberId = scanner.nextLine().trim();
+        if (memberId.isEmpty()) {
+            System.out.println(">> Validation Error: Member ID cannot be empty.");
+            return;
+        }
+        if (control.isMemberIdRegistered(memberId)) {
+            System.out.println(">> Validation Error: Member ID \"" + memberId + "\" is already registered.");
+            return;
+        }
 
         System.out.println("Select Loyalty Tier:");
         System.out.println("1. Diamond");
@@ -155,7 +175,7 @@ public class PriorityAllocationUI {
 
     private void viewPendingQueue() {
         System.out.println("\n----------------- CURRENT VIP PRIORITY QUEUE -----------------");
-        System.out.println(control.generatePriorityWaitlistReport(null, null));
+        System.out.println(control.getQueueSnapshot());
     }
 
     private void generateReport1() {
@@ -199,17 +219,17 @@ public class PriorityAllocationUI {
     private String parseTier(int choice) {
         switch (choice) {
             case 1:
-                return "Diamond";
+                return "DIAMOND";
             case 2:
-                return "Platinum";
+                return "PLATINUM";
             case 3:
-                return "Elite";
+                return "ELITE";
             case 4:
-                return "Gold";
+                return "GOLD";
             case 5:
-                return "Silver";
+                return "SILVER";
             default:
-                return "Standard";
+                return "STANDARD";
         }
     }
 

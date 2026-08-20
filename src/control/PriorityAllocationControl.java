@@ -96,8 +96,23 @@ public class PriorityAllocationControl {
             throw new IllegalArgumentException("Member ID cannot be empty.");
         }
 
-        Member member = new Member(memberId.trim(), tier.trim(), Math.max(0, points));
-        Guest guest = new Guest(confNumber.trim(), name.trim(), false, "Booked", null,
+        String cleanConf = confNumber.trim();
+        String cleanMemberId = memberId.trim();
+
+        if (isConfirmationNumberTaken(cleanConf)) {
+            throw new IllegalArgumentException(
+                    "Confirmation number \"" + cleanConf + "\" is already registered.");
+        }
+        if (isMemberIdTaken(cleanMemberId)) {
+            throw new IllegalArgumentException(
+                    "Member ID \"" + cleanMemberId + "\" is already registered.");
+        }
+
+        String normalizedTier = (tier == null || tier.trim().isEmpty())
+                ? "STANDARD" : tier.trim().toUpperCase();
+
+        Member member = new Member(cleanMemberId, normalizedTier, Math.max(0, points));
+        Guest guest = new Guest(cleanConf, name.trim(), false, "Booked", null,
                 (billing == null || billing.trim().isEmpty()) ? "Paid" : billing.trim(), member);
 
         if (priorityQueue.enqueue(guest)) {
@@ -105,6 +120,72 @@ public class PriorityAllocationControl {
         }
         return null;
     }
+
+    /**
+     * Linear search across both the pending priority queue and the allocated
+     * VIP records to check whether a confirmation number is already in use.
+     */
+    private boolean isConfirmationNumberTaken(String confirmationNumber) {
+        for (int i = 0; i < priorityQueue.getSize(); i++) {
+            Guest g = priorityQueue.getEntry(i);
+            if (g != null && g.getConfirmationNumber().equalsIgnoreCase(confirmationNumber)) {
+                return true;
+            }
+        }
+        for (int i = 0; i < allocatedVipRecords.getNumberOfEntries(); i++) {
+            Guest g = allocatedVipRecords.getEntry(i);
+            if (g != null && g.getConfirmationNumber().equalsIgnoreCase(confirmationNumber)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Linear search across both the pending priority queue and the allocated
+     * VIP records to check whether a member ID is already registered.
+     */
+    private boolean isMemberIdTaken(String memberId) {
+        for (int i = 0; i < priorityQueue.getSize(); i++) {
+            Guest g = priorityQueue.getEntry(i);
+            if (g != null && g.getMemberProfile() != null
+                    && g.getMemberProfile().getMemberID().equalsIgnoreCase(memberId)) {
+                return true;
+            }
+        }
+        for (int i = 0; i < allocatedVipRecords.getNumberOfEntries(); i++) {
+            Guest g = allocatedVipRecords.getEntry(i);
+            if (g != null && g.getMemberProfile() != null
+                    && g.getMemberProfile().getMemberID().equalsIgnoreCase(memberId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+    * Checks whether a confirmation number is already registered (pending
+    * queue or allocated records), without performing any registration.
+    * Exposed so the Boundary layer can validate input immediately, before
+    * the full reservation form is completed.
+    */
+   public boolean isConfirmationNumberRegistered(String confirmationNumber) {
+       if (confirmationNumber == null || confirmationNumber.trim().isEmpty()) {
+           return false;
+       }
+       return isConfirmationNumberTaken(confirmationNumber.trim());
+   }
+
+   /**
+    * Checks whether a member ID is already registered (pending queue or
+    * allocated records), without performing any registration.
+    */
+   public boolean isMemberIdRegistered(String memberId) {
+       if (memberId == null || memberId.trim().isEmpty()) {
+           return false;
+       }
+       return isMemberIdTaken(memberId.trim());
+   }
 
     /**
      * Automatically search for the first available, clean room and allocate to
@@ -224,6 +305,25 @@ public class PriorityAllocationControl {
 
     public PriorityQueueInterface<Guest> getPriorityQueue() {
         return priorityQueue;
+    }
+
+    /**
+     * Quick unformatted view of the pending VIP queue in priority order.
+     */
+    public String getQueueSnapshot() {
+        StringBuilder sb = new StringBuilder();
+        int size = priorityQueue.getSize();
+        if (size == 0) {
+            return "No VIP guests currently in the priority queue.\n";
+        }
+        for (int i = 0; i < size; i++) {
+            Guest g = priorityQueue.getEntry(i);
+            sb.append(String.format("%d. %s [%s | %d pts]%n",
+                    i + 1, g.getName(),
+                    g.getMemberProfile().getTierType(),
+                    g.getMemberProfile().getPoints()));
+        }
+        return sb.toString();
     }
 
     // =========================================================================

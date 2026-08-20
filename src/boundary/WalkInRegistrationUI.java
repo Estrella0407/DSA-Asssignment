@@ -1,11 +1,11 @@
 /*
- * Module: Walk-In Registrations & Standard Booking Procedure (Boundary UI Component)
- * Author: LAW QINQI
- * 
- * Description:
- * Boundary class handling console user interaction for Walk-In Registrations & Standard Booking.
- * Strictly adheres to ECB constraints (communicates only with Actor and WalkInRegistrationControl).
- */
+Module: Walk-In Registrations & Standard Booking Procedure (Boundary UI Component)
+Author: LAW QINQI 
+
+Description:
+Boundary class handling console user interaction for Walk-In Registrations & Standard Booking.
+Strictly adheres to ECB constraints (communicates only with Actor and WalkInRegistrationControl).
+*/
 package boundary;
 
 import control.WalkInRegistrationControl;
@@ -17,18 +17,15 @@ public class WalkInRegistrationUI {
     private Scanner sc;
     private WalkInRegistrationControl control;
 
-    /**
-     * Standalone use: owns its own Scanner over System.in.
-     */
+    // Standalone use: owns its own Scanner over System.in.
     public WalkInRegistrationUI(WalkInRegistrationControl control) {
         this(control, new Scanner(System.in));
     }
 
-    /**
-     * Preferred when launched from another boundary class (e.g. MainMenuUI):
-     * reuses the caller's Scanner instead of opening a second one on System.in,
-     * which would otherwise silently drop buffered input.
-     */
+    /*
+    Preferred when launched from another boundary class (e.g. MainMenuUI):
+    reuses the caller's Scanner instead of opening a second one on System.in, which would otherwise silently drop buffered input.
+    */
     public WalkInRegistrationUI(WalkInRegistrationControl control, Scanner sc) {
         this.control = control;
         this.sc = sc;

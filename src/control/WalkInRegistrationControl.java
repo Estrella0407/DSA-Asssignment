@@ -1,11 +1,11 @@
 /*
- * Module: Walk-In Registrations & Standard Booking Procedure (Control Component)
- * Author: LAW QINQI
- * 
- * Description:
- * Control class implementing business logic for Walk-In Registrations & Standard Booking.
- * Orchestrates the Guest FIFO queue (Doubly Linked List Linear ADT), shared room inventory,
- * check-in/check-out lifecycle, and analytical management reports.
+ Module: Walk-In Registrations & Standard Booking Procedure (Control Component)
+ Author: LAW QINQI
+  
+ Description:
+ Control class implementing business logic for Walk-In Registrations & Standard Booking.
+ Orchestrates the Guest FIFO queue (Doubly Linked List Linear ADT), shared room inventory,
+ check-in/check-out lifecycle, and analytical management reports.
  */
 package control;
 
@@ -20,13 +20,11 @@ public class WalkInRegistrationControl {
     public static final String TYPE_WALKIN = "Walk-in";
     public static final String TYPE_BOOKED = "Booked";
 
-    // Confirmation-number prefixes (WI- for walk-ins, SG- for standard/
-    // pre-booked guests) so the two guest types stay distinguishable.
+    // Confirmation-number prefixes (WI- for walk-ins, SG- for standard/pre-booked guests) so the two guest types stay distinguishable.
     private static final String PREFIX_WALKIN = "WI-";
     private static final String PREFIX_STANDARD = "SG-";
 
-    // Cleaning status (from Room's own status vocabulary) that marks a
-    // room as ready to receive a guest.
+    // Cleaning status (from Room's own status vocabulary) that marks a room as ready to receive a guest.
     private static final String STATUS_READY = "Ready for Check-In";
 
     // Chronological queue of guests awaiting check-in / room assignment.
@@ -44,13 +42,12 @@ public class WalkInRegistrationControl {
         this.roomList = roomList;
     }
 
-    // ---------- Registration ----------
-    /**
-     * Register a new walk-in guest and add them to the back of the
-     * chronological processing queue (Linear ADT - FIFO). Pre-cond: name and
-     * billingDetails are non-blank. Throws IllegalArgumentException if
-     * validation fails.
-     */
+    /*
+    Registration:
+    Register a new walk-in guest and add them to the back of the chronological processing queue (Linear ADT - FIFO). 
+    Pre-cond: name and billingDetails are non-blank. 
+    Throws IllegalArgumentException if validation fails.
+    */
     public Guest registerWalkIn(String name, String billingDetails) {
         String cleanName = requireNonBlank(name, "Guest name");
         String cleanBilling = requireNonBlank(billingDetails, "Billing details");
@@ -62,16 +59,14 @@ public class WalkInRegistrationControl {
         return guest;
     }
 
-    /**
-     * Register a new standard-booking guest and add them to the back of the
-     * chronological processing queue (Linear ADT - FIFO).
-     *
-     * Pre-cond: name and billingDetails are non-blank. Standard-booking
-     * confirmation numbers are always normalised to carry the "SG-" prefix
-     * (mirroring the "WI-" prefix walk-ins get), and must be unique among
-     * existing guest records. Throws IllegalArgumentException if validation
-     * fails.
-     */
+    /*
+    Register a new standard-booking guest and add them to the back of the chronological processing queue (Linear ADT - FIFO).
+     
+    Pre-cond: name and billingDetails are non-blank. 
+    Standard-booking confirmation numbers are always normalised to carry the "SG-" prefix (mirroring the "WI-" prefix walk-ins get), 
+    and must be unique among existing guest records. 
+    Throws IllegalArgumentException if validation fails.
+    */
     public Guest registerBooking(String confirmationNumber, String name, String billingDetails) {
         String cleanName = requireNonBlank(name, "Guest name");
         String cleanBilling = requireNonBlank(billingDetails, "Billing details");
@@ -92,9 +87,7 @@ public class WalkInRegistrationControl {
         return guest;
     }
 
-    /**
-     * Trim and validate that a required field is not null/blank.
-     */
+    //Trim and validate that a required field is not null/blank.
     private String requireNonBlank(String value, String fieldLabel) {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException(fieldLabel + " cannot be empty.");
@@ -102,10 +95,7 @@ public class WalkInRegistrationControl {
         return value.trim();
     }
 
-    /**
-     * Linear search to check whether a confirmation number is already on
-     * record.
-     */
+    // Linear search to check whether a confirmation number is already on record.
     private boolean isConfirmationNumberTaken(String confirmationNumber) {
         for (int i = 0; i < guestRecords.getNumberOfEntries(); i++) {
             if (guestRecords.getEntry(i).getConfirmationNumber().equalsIgnoreCase(confirmationNumber)) {
@@ -115,12 +105,11 @@ public class WalkInRegistrationControl {
         return false;
     }
 
-    // ---------- Queue processing ----------
-    /**
-     * Process the next guest in line: dequeue them, search for the first
-     * available, ready-for-check-in room, assign it, and check them in. Returns
-     * null if the queue is empty or no room is available.
-     */
+    /*
+    Queue processing:
+    Process the next guest in line: dequeue them, search for the first available, ready-for-check-in room, assign it, and check them in. 
+    Returns null if the queue is empty or no room is available.
+    */
     public Guest processNextGuest() {
         if (guestQueue.isEmpty()) {
             return null;
@@ -136,9 +125,7 @@ public class WalkInRegistrationControl {
         return guest;
     }
 
-    /**
-     * Linear search for the first available, ready-for-check-in room.
-     */
+    // Linear search for the first available, ready-for-check-in room.
     private Room findFirstAvailableCleanRoom() {
         for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
             Room r = roomList.getEntry(i);
@@ -157,12 +144,12 @@ public class WalkInRegistrationControl {
         return guestQueue.retrieveFirst();
     }
 
-    /**
-     * Check out a guest by confirmation number (linear search + removal).
-     * Pre-cond: confirmationNumber is non-blank. Throws
-     * IllegalArgumentException if no matching guest record is found, and
-     * IllegalStateException if the matching guest is not currently checked in.
-     */
+    /*
+    Check out a guest by confirmation number (linear search + removal).
+    Pre-cond: confirmationNumber is non-blank. 
+    Throws IllegalArgumentException if no matching guest record is found, and
+    IllegalStateException if the matching guest is not currently checked in.
+    */
     public boolean checkOutGuest(String confirmationNumber) {
         String cleanConf = requireNonBlank(confirmationNumber, "Confirmation number");
 
@@ -189,13 +176,13 @@ public class WalkInRegistrationControl {
         throw new IllegalArgumentException("No guest found with confirmation number \"" + cleanConf + "\".");
     }
 
-    // ---------- Report 1: Guest Registration & Check-In Status Report ----------
+    // Report 1: Guest Registration & Check-In Status Report
     // Combines: linear search (filter by type/status) + insertion sort (by name)
-    /**
-     * @param typeFilter null for all types, or "Walk-in"/"Booked"
-     * @param statusFilter null for all guests, or one of Guest.STATUS_PENDING,
-     * Guest.STATUS_CHECKED_IN, Guest.STATUS_CHECKED_OUT
-     */
+    /*
+    @param typeFilter null for all types, or "Walk-in"/"Booked"
+    @param statusFilter null for all guests, or one of Guest.STATUS_PENDING,
+    Guest.STATUS_CHECKED_IN, Guest.STATUS_CHECKED_OUT
+    */
     public void printGuestCheckInReport(String typeFilter, String statusFilter) {
         // Step 1: search/filter matching guests into a temporary array.
         Guest[] filtered = new Guest[guestRecords.getNumberOfEntries()];
@@ -240,7 +227,7 @@ public class WalkInRegistrationControl {
         System.out.println("=====================================================================\n");
     }
 
-    // ---------- Report 2: Active Waitlist & Queue Summary Report ----------
+    // Report 2: Active Waitlist & Queue Summary Report
     // Combines: search/filter by guest type + insertion sort (by name/pos)
     public void printQueueSummaryReport(String typeFilter) {
         int totalQueue = guestQueue.getNumberOfEntries();
