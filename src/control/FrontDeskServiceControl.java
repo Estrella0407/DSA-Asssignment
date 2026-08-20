@@ -4,11 +4,12 @@
  * 
  * Description:
  * Control class implementing business logic for Front-Desk Service inquiries.
- * Uses custom Dictionary / HashTable ADT to provide instant O(1) retrieval for guest identification,
+ * Uses custom Dictionary / HashTable ADT and DoublyLinkedList to provide instant O(1) retrieval for guest identification,
  * room availability checks, and billing details.
  */
 package control;
 
+import adt.DoublyLinkedList;
 import adt.Dictionary;
 import entity.Guest;
 import entity.Room;
@@ -16,14 +17,17 @@ import entity.Room;
 public class FrontDeskServiceControl {
     private Dictionary<String, Guest> guestTable;
     private Dictionary<String, Room> roomTable;
+    private DoublyLinkedList<Guest> guestList;
     
     public FrontDeskServiceControl(Dictionary<String, Guest> guestTable,Dictionary<String, Room> roomTable){
         this.guestTable = guestTable;
         this.roomTable = roomTable;
+        this.guestList = new DoublyLinkedList<>();
     }
     
     public void addGuest(Guest guest){
         guestTable.add(guest.getConfirmationNumber(), guest);
+        guestList.insertLast(guest);
     }
     
     public void addRoom(Room room){
@@ -69,5 +73,9 @@ public class FrontDeskServiceControl {
             return false;
         }
         return room.isAvailable();
+    }
+    
+    public DoublyLinkedList<Guest> getGuestList(){
+        return guestList;
     }
 }
