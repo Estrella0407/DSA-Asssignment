@@ -46,7 +46,7 @@ public class WalkInRegistrationControl {
     Registration:
     Register a new walk-in guest and add them to the back of the chronological processing queue (Linear ADT - FIFO). 
     Pre-cond: name and billingDetails are non-blank. 
-    Throws IllegalArgumentException ifmvalidation fails.
+    Throws IllegalArgumentException if validation fails.
     */
     public Guest registerWalkIn(String name, String billingDetails) {
         String cleanName = requireNonBlank(name, "Guest name");
