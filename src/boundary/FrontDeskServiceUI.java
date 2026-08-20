@@ -1,7 +1,12 @@
 /**
- *
- * @author Melaine Yang Mei
+ * Module: Front-Desk Service (Boundary UI Component)
+ * Author: MELAINE YANG MEI
+ * 
+ * Description:
+ * Boundary class handling console user interaction for Front-Desk Service inquiries,
+ * room/billing lookups using 8-digit confirmation numbers, and management reporting.
  */
+
 package boundary;
 import entity.Guest;
 import entity.Room;
