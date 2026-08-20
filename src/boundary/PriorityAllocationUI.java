@@ -75,12 +75,32 @@ public class PriorityAllocationUI {
     private void addVIPReservation() {
         System.out.print("Enter 8-digit Confirmation Number: ");
         String conf = scanner.nextLine().trim();
+        if (conf.isEmpty()) {
+            System.out.println(">> Validation Error: Confirmation number cannot be empty.");
+            return;
+        }
+        if (control.isConfirmationNumberRegistered(conf)) {
+            System.out.println(">> Validation Error: Confirmation number \"" + conf + "\" is already registered.");
+            return;
+        }
 
         System.out.print("Enter Guest Name: ");
         String name = scanner.nextLine().trim();
+        if (name.isEmpty()) {
+            System.out.println(">> Validation Error: Guest name cannot be empty.");
+            return;
+        }
 
         System.out.print("Enter Member ID: ");
         String memberId = scanner.nextLine().trim();
+        if (memberId.isEmpty()) {
+            System.out.println(">> Validation Error: Member ID cannot be empty.");
+            return;
+        }
+        if (control.isMemberIdRegistered(memberId)) {
+            System.out.println(">> Validation Error: Member ID \"" + memberId + "\" is already registered.");
+            return;
+        }
 
         System.out.println("Select Loyalty Tier:");
         System.out.println("1. Diamond");

@@ -162,6 +162,30 @@ public class PriorityAllocationControl {
         }
         return false;
     }
+    
+    /**
+    * Checks whether a confirmation number is already registered (pending
+    * queue or allocated records), without performing any registration.
+    * Exposed so the Boundary layer can validate input immediately, before
+    * the full reservation form is completed.
+    */
+   public boolean isConfirmationNumberRegistered(String confirmationNumber) {
+       if (confirmationNumber == null || confirmationNumber.trim().isEmpty()) {
+           return false;
+       }
+       return isConfirmationNumberTaken(confirmationNumber.trim());
+   }
+
+   /**
+    * Checks whether a member ID is already registered (pending queue or
+    * allocated records), without performing any registration.
+    */
+   public boolean isMemberIdRegistered(String memberId) {
+       if (memberId == null || memberId.trim().isEmpty()) {
+           return false;
+       }
+       return isMemberIdTaken(memberId.trim());
+   }
 
     /**
      * Automatically search for the first available, clean room and allocate to
