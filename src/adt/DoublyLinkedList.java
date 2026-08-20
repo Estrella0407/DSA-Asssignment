@@ -1,14 +1,12 @@
 /*
- * Module: Linear ADT (Collection ADT Implementation)
- * Author: LAW QINQI
- * 
- * Description:
- * Doubly linked-list based implementation of the custom Linear ADT.
- * Used to manage walk-in / standard booking guests chronologically
- * (insertLast to register a new guest, removeFirst to process the
- * next guest in line - i.e. FIFO queue behaviour), housekeeping task logs
- * (insertLast / removeLast for LIFO rollback), and shared room inventory.
- */
+Module: Linear ADT (Collection ADT Implementation)
+Author: LAW QINQI
+
+Description:
+Doubly linked-list based implementation of the custom Linear ADT.
+Used to manage walk-in / standard booking guests chronologically (insertLast to register a new guest, removeFirst to process the 
+next guest in line - i.e. FIFO queue behaviour), housekeeping task logs (insertLast / removeLast for LIFO rollback), and shared room inventory.
+*/
 package adt;
 
 import java.io.Serializable;
