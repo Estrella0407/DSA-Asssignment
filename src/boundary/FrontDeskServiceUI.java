@@ -10,6 +10,7 @@
 package boundary;
 import entity.Guest;
 import entity.Room;
+import entity.Member;
 import adt.DoublyLinkedList;
 import control.FrontDeskServiceControl;
 import java.util.Scanner;
@@ -101,6 +102,13 @@ public class FrontDeskServiceUI {
                     ? guest.getAssignedRoom().getRoomNumber() : "Unassigned";
             
             System.out.println("Assigned Room: " + roomNumber);
+            
+            if(guest.getMemberProfile() != null){
+                System.out.println("Member ID: " + guest.getMemberProfile().getMemberID());
+                System.out.println("Member Tier: " + guest.getMemberProfile().getTierType());
+            }else{
+                System.out.println("Member Status: Non-Member");
+            }
             
             System.out.println("----------------------------------------------------");
         }
