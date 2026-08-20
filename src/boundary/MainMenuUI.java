@@ -38,12 +38,12 @@ public class MainMenuUI {
         this.guestTable = new HashTable<>();
         this.roomTable = new HashTable<>();
 
-        seedRoomsAndGuests();
-
         this.walkInControl = new WalkInRegistrationControl(roomList);
         this.priorityControl = new PriorityAllocationControl(roomList);
         this.housekeepingControl = new HousekeepingControl(roomList);
         this.frontDeskControl = new FrontDeskServiceControl(guestTable, roomTable);
+        
+        seedRoomsAndGuests();
     }
 
     public void displayMainMenu() {
@@ -136,10 +136,11 @@ public class MainMenuUI {
         Guest g3 = new Guest("10001003", "Bob Lee", false, "Walk-in", null, "Cash - Pending", null);
         Guest g4 = new Guest("10001004", "Dr. Clara", false, "Booked", null, "Direct Transfer", new Member("M104", "ELITE", 1800));
 
-        guestTable.add(g1.getConfirmationNumber(), g1);
-        guestTable.add(g2.getConfirmationNumber(), g2);
-        guestTable.add(g3.getConfirmationNumber(), g3);
-        guestTable.add(g4.getConfirmationNumber(), g4);
+        
+        frontDeskControl.addGuest(g1);
+        frontDeskControl.addGuest(g2);
+        frontDeskControl.addGuest(g3);
+        frontDeskControl.addGuest(g4);
     }
 
     private int getIntInput() {
