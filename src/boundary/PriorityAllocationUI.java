@@ -199,17 +199,17 @@ public class PriorityAllocationUI {
     private String parseTier(int choice) {
         switch (choice) {
             case 1:
-                return "Diamond";
+                return "DIAMOND";
             case 2:
-                return "Platinum";
+                return "PLATINUM";
             case 3:
-                return "Elite";
+                return "ELITE";
             case 4:
-                return "Gold";
+                return "GOLD";
             case 5:
-                return "Silver";
+                return "SILVER";
             default:
-                return "Standard";
+                return "STANDARD";
         }
     }
 

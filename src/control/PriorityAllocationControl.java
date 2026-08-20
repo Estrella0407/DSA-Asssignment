@@ -96,14 +96,71 @@ public class PriorityAllocationControl {
             throw new IllegalArgumentException("Member ID cannot be empty.");
         }
 
-        Member member = new Member(memberId.trim(), tier.trim(), Math.max(0, points));
-        Guest guest = new Guest(confNumber.trim(), name.trim(), false, "Booked", null,
+        String cleanConf = confNumber.trim();
+        String cleanMemberId = memberId.trim();
+
+        if (isConfirmationNumberTaken(cleanConf)) {
+            throw new IllegalArgumentException(
+                    "Confirmation number \"" + cleanConf + "\" is already registered.");
+        }
+        if (isMemberIdTaken(cleanMemberId)) {
+            throw new IllegalArgumentException(
+                    "Member ID \"" + cleanMemberId + "\" is already registered.");
+        }
+
+        String normalizedTier = (tier == null || tier.trim().isEmpty())
+                ? "STANDARD" : tier.trim().toUpperCase();
+
+        Member member = new Member(cleanMemberId, normalizedTier, Math.max(0, points));
+        Guest guest = new Guest(cleanConf, name.trim(), false, "Booked", null,
                 (billing == null || billing.trim().isEmpty()) ? "Paid" : billing.trim(), member);
 
         if (priorityQueue.enqueue(guest)) {
             return guest;
         }
         return null;
+    }
+
+    /**
+     * Linear search across both the pending priority queue and the allocated
+     * VIP records to check whether a confirmation number is already in use.
+     */
+    private boolean isConfirmationNumberTaken(String confirmationNumber) {
+        for (int i = 0; i < priorityQueue.getSize(); i++) {
+            Guest g = priorityQueue.getEntry(i);
+            if (g != null && g.getConfirmationNumber().equalsIgnoreCase(confirmationNumber)) {
+                return true;
+            }
+        }
+        for (int i = 0; i < allocatedVipRecords.getNumberOfEntries(); i++) {
+            Guest g = allocatedVipRecords.getEntry(i);
+            if (g != null && g.getConfirmationNumber().equalsIgnoreCase(confirmationNumber)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Linear search across both the pending priority queue and the allocated
+     * VIP records to check whether a member ID is already registered.
+     */
+    private boolean isMemberIdTaken(String memberId) {
+        for (int i = 0; i < priorityQueue.getSize(); i++) {
+            Guest g = priorityQueue.getEntry(i);
+            if (g != null && g.getMemberProfile() != null
+                    && g.getMemberProfile().getMemberID().equalsIgnoreCase(memberId)) {
+                return true;
+            }
+        }
+        for (int i = 0; i < allocatedVipRecords.getNumberOfEntries(); i++) {
+            Guest g = allocatedVipRecords.getEntry(i);
+            if (g != null && g.getMemberProfile() != null
+                    && g.getMemberProfile().getMemberID().equalsIgnoreCase(memberId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
