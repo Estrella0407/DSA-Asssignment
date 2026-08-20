@@ -4,7 +4,6 @@ Author: LAW QINQI
  
 Description:
 Custom Linear ADT interface (doubly linked-list based, FIFO/LIFO capable).
-Original user-defined ADT implementation complying with assignment guidelines and containing zero Java Collections Framework (JCF) classes.
 */
 
 package adt;
