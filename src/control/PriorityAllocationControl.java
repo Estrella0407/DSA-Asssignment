@@ -226,6 +226,25 @@ public class PriorityAllocationControl {
         return priorityQueue;
     }
 
+    /**
+     * Quick unformatted view of the pending VIP queue in priority order.
+     */
+    public String getQueueSnapshot() {
+        StringBuilder sb = new StringBuilder();
+        int size = priorityQueue.getSize();
+        if (size == 0) {
+            return "No VIP guests currently in the priority queue.\n";
+        }
+        for (int i = 0; i < size; i++) {
+            Guest g = priorityQueue.getEntry(i);
+            sb.append(String.format("%d. %s [%s | %d pts]%n",
+                    i + 1, g.getName(),
+                    g.getMemberProfile().getTierType(),
+                    g.getMemberProfile().getPoints()));
+        }
+        return sb.toString();
+    }
+
     // =========================================================================
     // REPORT 1: VIP Tier Allocation & Demand Performance Report
     // Combines: Linear Search + Multi-Criteria Filter (Tier & Min Points) +

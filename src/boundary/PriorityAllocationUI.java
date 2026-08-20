@@ -155,7 +155,7 @@ public class PriorityAllocationUI {
 
     private void viewPendingQueue() {
         System.out.println("\n----------------- CURRENT VIP PRIORITY QUEUE -----------------");
-        System.out.println(control.generatePriorityWaitlistReport(null, null));
+        System.out.println(control.getQueueSnapshot());
     }
 
     private void generateReport1() {
