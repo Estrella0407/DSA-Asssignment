@@ -200,12 +200,12 @@ public class FrontDeskServiceUI {
         
         public void frontDeskReport2(){
             DoublyLinkedList<Guest> guests = controller.getGuestList();
-            System.out.println("\n=================================================================");
-            System.out.println("               GUEST OCCUPANCY REPORT");
-            System.out.println("=================================================================");
+            System.out.println("\n===================================================================");
+            System.out.println("                      GUEST OCCUPANCY REPORT");
+            System.out.println("===================================================================");
             System.out.printf("%-12s %-18s %-10s %-12s %-10s%n", 
                     "Conf. No", "Guest Name", "Type", "Room", "Status");
-            System.out.println("-----------------------------------------------------------------");
+            System.out.println("-------------------------------------------------------------------");           
             
             for (int i = 0; i < guests.getNumberOfEntries(); i++){
                 Guest guest = guests.getEntry(i);
@@ -223,9 +223,39 @@ public class FrontDeskServiceUI {
                         guest.getName(),
                         guest.getType(),
                         roomNumber,
-                        status);
+                        status);         
             }
-            System.out.println("==================================================================");
+            
+            int totalGuest = 0;
+            int checkInGuests = 0;
+            int pendingGuests = 0;
+            int occupiedRooms = 0;
+            
+            for (int i =0; i < guests.getNumberOfEntries(); i++){
+                Guest guest = guests.getEntry(i);        
+                totalGuest++;
+                
+                if(guest.getCheckInStatus()){
+                    checkInGuests++;
+                }else{
+                    pendingGuests++;
+                }
+                
+                if(guest.getAssignedRoom()!= null){
+                    occupiedRooms++;
+                }              
+            }
+            
+            double occupancyRate = totalGuest > 0
+                        ? (double) checkInGuests / totalGuest * 100
+                        : 0;
+            System.out.println("-------------------------------------------------------------------");
+            System.out.println("Total Guests: " + totalGuest);
+            System.out.println("Checked In Guests: " + checkInGuests);
+            System.out.println("Pending Guests: " + pendingGuests);
+            System.out.println("Occupied Rooms: " + occupiedRooms);
+            System.out.printf("Occupancy Rate: %.2f%%%n", occupancyRate);
+            System.out.println("====================================================================");
         }
         
         public int readInteger(){
