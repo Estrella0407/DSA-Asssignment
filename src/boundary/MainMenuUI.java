@@ -1,6 +1,6 @@
 /*
  * Module: System Navigation & Subsystem Orchestration (Boundary UI Component)
- * Author: TARUMT Resorts Development Team
+ * Author: ALL
  * 
  * Description:
  * Boundary class for displaying the main menu, managing top-level navigation,
@@ -38,12 +38,12 @@ public class MainMenuUI {
         this.guestTable = new HashTable<>();
         this.roomTable = new HashTable<>();
 
-        seedRoomsAndGuests();
-
         this.walkInControl = new WalkInRegistrationControl(roomList);
         this.priorityControl = new PriorityAllocationControl(roomList);
         this.housekeepingControl = new HousekeepingControl(roomList);
         this.frontDeskControl = new FrontDeskServiceControl(guestTable, roomTable);
+        
+        seedRoomsAndGuests();
     }
 
     public void displayMainMenu() {
@@ -104,13 +104,13 @@ public class MainMenuUI {
      * Initial resort room inventory and sample guests shared across subsystems.
      */
     private void seedRoomsAndGuests() {
-        Room r101 = new Room("101", "Ready for Check-In", true);
-        Room r102 = new Room("102", "Ready for Check-In", true);
-        Room r103 = new Room("103", "Dirty", true);
-        Room r104 = new Room("104", "Cleaning In Progress", false);
-        Room r105 = new Room("105", "Ready for Check-In", true);
-        Room r201 = new Room("201", "Ready for Check-In", true);
-        Room r202 = new Room("202", "Inspected", true);
+        Room r101 = new Room("101", "Ready for Check-In", true, Room.TYPE_SINGLE);
+        Room r102 = new Room("102", "Ready for Check-In", true, Room.TYPE_DOUBLE);
+        Room r103 = new Room("103", "Dirty", true, Room.TYPE_DOUBLE);
+        Room r104 = new Room("104", "Cleaning In Progress", false, Room.TYPE_DELUXE);
+        Room r105 = new Room("105", "Ready for Check-In", true, Room.TYPE_DELUXE);
+        Room r201 = new Room("201", "Ready for Check-In", true, Room.TYPE_SUITE);
+        Room r202 = new Room("202", "Inspected", true, Room.TYPE_SUITE);
 
         // Add to Linear ADT room list
         roomList.insertLast(r101);
@@ -131,15 +131,28 @@ public class MainMenuUI {
         roomTable.add(r202.getRoomNumber(), r202);
 
         // Seed sample guests into Front-Desk Hash Table guest dictionary
-        Guest g1 = new Guest("10001001", "Alice Tan", true, "Booked", r101, "Credit Card - Paid", new Member("M101", "GOLD", 500));
-        Guest g2 = new Guest("10001002", "Dato Steven", true, "Booked", r102, "Corporate Billing", new Member("M102", "DIAMOND", 2500));
-        Guest g3 = new Guest("10001003", "Bob Lee", false, "Walk-in", null, "Cash - Pending", null);
-        Guest g4 = new Guest("10001004", "Dr. Clara", false, "Booked", null, "Direct Transfer", new Member("M104", "ELITE", 1800));
+        Guest g1 = new Guest("VIP-1001", "Alice Tan", true, "Booked", r101, "Credit Card - Paid", new Member("M101", "GOLD", 500), 3);
+        g1.setPreferredRoomType(Room.TYPE_SINGLE);
 
-        guestTable.add(g1.getConfirmationNumber(), g1);
-        guestTable.add(g2.getConfirmationNumber(), g2);
-        guestTable.add(g3.getConfirmationNumber(), g3);
-        guestTable.add(g4.getConfirmationNumber(), g4);
+        Guest g2 = new Guest("VIP-1002", "Dato Steven", true, "Booked", r102, "Corporate Billing", new Member("M102", "DIAMOND", 2500), 7);
+        g2.setPreferredRoomType(Room.TYPE_DOUBLE);
+
+        Guest g3 = new Guest("SG-1001", "Bob Lee", false, "Walk-in", null, "Cash - Pending", null, 35);
+        g3.setPreferredRoomType(Room.TYPE_DOUBLE);
+        g3.applyLongStayPromotion(); // Long stay > 30 days -> Auto Gold Member
+
+        Guest g4 = new Guest("VIP-1003", "Dr. Clara", false, "Booked", null, "Direct Transfer", new Member("M104", "ELITE", 1800), 4);
+        g4.setPreferredRoomType(Room.TYPE_DELUXE);
+        g4.redeemPointsForStay(Room.TYPE_DELUXE); // Redeemed 400 pts for 2-day free stay
+
+        Guest g5 = new Guest("WI-1001", "Lau Yue", false, "Walk-in", null, "Cash - Pending", null, 2);
+        g5.setPreferredRoomType(Room.TYPE_SINGLE);
+
+        frontDeskControl.addGuest(g1);
+        frontDeskControl.addGuest(g2);
+        frontDeskControl.addGuest(g3);
+        frontDeskControl.addGuest(g4);
+        frontDeskControl.addGuest(g5);
     }
 
     private int getIntInput() {

@@ -1,6 +1,6 @@
 /*
  * Module: Shared Entity Component (Guest & Reservation)
- * Author: WEI XIN
+ * Author: WEI XIN & LAW QINQI
  * 
  * Description:
  * Entity class representing a Guest / Reservation profile in TARUMT Resorts.
@@ -25,25 +25,32 @@ public class Guest implements Serializable, Comparable<Guest> {
     private String status; // one of STATUS_PENDING / STATUS_CHECKED_IN / STATUS_CHECKED_OUT
     private String type; // Walk-in / Booked
     private Room assignedRoom;
+    private String preferredRoomType; // nullable - null means "Any" (no preference)
+    private int stayDays = 1; // Length of stay in days (>= 1)
+    private boolean isPointsRedeemed; // True if 2-day point redemption was applied
+    private int redeemedPoints; // Points deducted for the 2-day redemption
     private String billingDetails;
     private Member memberProfile; // Nullable if guest is not a loyalty member
+    private String lastPromotionMessage; // set by applyLongStayPromotion(); null if no milestone reached this call
 
     public Guest() {
-        this("", "", false, "Walk-in", null, "", null);
+        this("", "", false, "Walk-in", null, "", null, 1);
     }
 
     public Guest(String confirmationNumber, String name, String type) {
-        this(confirmationNumber, name, false, type, null, "Pending Billing", null);
+        this(confirmationNumber, name, false, type, null, "Pending Billing", null, 1);
     }
 
     /**
-     * Kept for backward compatibility with existing call sites that pass a
-     * boolean check-in flag. true maps to STATUS_CHECKED_IN, false maps to
-     * STATUS_PENDING (use setStatus(...) directly if you need
-     * STATUS_CHECKED_OUT at construction time).
+     * Kept for backward compatibility with existing call sites. Defaults stayDays to 1.
      */
     public Guest(String confirmationNumber, String name, boolean checkInStatus,
             String type, Room assignedRoom, String billingDetails, Member memberProfile) {
+        this(confirmationNumber, name, checkInStatus, type, assignedRoom, billingDetails, memberProfile, 1);
+    }
+
+    public Guest(String confirmationNumber, String name, boolean checkInStatus,
+            String type, Room assignedRoom, String billingDetails, Member memberProfile, int stayDays) {
         this.confirmationNumber = confirmationNumber;
         this.name = name;
         this.status = checkInStatus ? STATUS_CHECKED_IN : STATUS_PENDING;
@@ -51,6 +58,9 @@ public class Guest implements Serializable, Comparable<Guest> {
         this.assignedRoom = assignedRoom;
         this.billingDetails = billingDetails;
         this.memberProfile = memberProfile;
+        this.stayDays = Math.max(1, stayDays);
+        this.isPointsRedeemed = false;
+        this.redeemedPoints = 0;
     }
 
     public String getConfirmationNumber() {
@@ -123,6 +133,34 @@ public class Guest implements Serializable, Comparable<Guest> {
         this.assignedRoom = room;
     }
 
+    public String getPreferredRoomType() {
+        return preferredRoomType;
+    }
+
+    public void setPreferredRoomType(String preferredRoomType) {
+        this.preferredRoomType = preferredRoomType;
+    }
+
+    public int getStayDays() {
+        return stayDays;
+    }
+
+    public void setStayDays(int stayDays) {
+        this.stayDays = Math.max(1, stayDays);
+    }
+
+    public boolean isPointsRedeemed() {
+        return isPointsRedeemed;
+    }
+
+    public int getRedeemedPoints() {
+        return redeemedPoints;
+    }
+    
+    public String getLastPromotionMessage() {
+        return lastPromotionMessage;
+    }
+
     public String getBillingDetails() {
         return billingDetails;
     }
@@ -137,6 +175,107 @@ public class Guest implements Serializable, Comparable<Guest> {
 
     public void setMemberProfile(Member memberProfile) {
         this.memberProfile = memberProfile;
+    }
+
+    /**
+     * Calculates the loyalty points required to redeem a 2-Day Free Stay
+     * based on room type:
+     * - Single: 150 pts
+     * - Double: 250 pts
+     * - Deluxe: 400 pts
+     * - Suite:  600 pts
+     */
+    public static int getRedemptionCostForRoomType(String roomType) {
+        String type = Room.normalizeRoomType(roomType);
+        switch (type.toUpperCase()) {
+            case "DOUBLE":
+                return 250;
+            case "DELUXE":
+                return 400;
+            case "SUITE":
+                return 600;
+            case "SINGLE":
+            default:
+                return 150;
+        }
+    }
+
+    /**
+     * Attempts to redeem points for a 2-day free stay.
+     * Returns true if successful and points deducted, false otherwise.
+     */
+    public boolean redeemPointsForStay(String targetRoomType) {
+        if (memberProfile == null) {
+            return false;
+        }
+        int cost = getRedemptionCostForRoomType(targetRoomType);
+        if (memberProfile.getPoints() >= cost) {
+            memberProfile.deductPoints(cost);
+            this.isPointsRedeemed = true;
+            this.redeemedPoints = cost;
+            this.billingDetails = (this.billingDetails == null || this.billingDetails.isEmpty())
+                    ? "Points Redeemed (2-Day Free Stay - " + cost + " pts)"
+                    : this.billingDetails + " [2-Day Free Stay Redeemed: -" + cost + " pts]";
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Evaluates graduated long-stay loyalty milestone promotions:
+     * - > 180 days: DIAMOND Member (+ 3000 bonus points)
+     * - > 90 days:  PLATINUM Member (+ 1800 bonus points)
+     * - > 60 days:  ELITE Member    (+ 1000 bonus points)
+     * - > 30 days:  GOLD Member     (+ 500 bonus points)
+     * - > 14 days:  SILVER Member   (+ 200 bonus points)
+     * 
+     * Returns a celebratory message if a milestone promotion occurred, or null if no threshold met.
+     */
+    public String applyLongStayPromotion() {
+        if (this.stayDays <= 14) {
+            return null;
+        }
+
+        String targetTier;
+        int bonusPoints;
+
+        if (this.stayDays > 180) {
+            targetTier = "DIAMOND";
+            bonusPoints = 3000;
+        } else if (this.stayDays > 90) {
+            targetTier = "PLATINUM";
+            bonusPoints = 1800;
+        } else if (this.stayDays > 60) {
+            targetTier = "ELITE";
+            bonusPoints = 1000;
+        } else if (this.stayDays > 30) {
+            targetTier = "GOLD";
+            bonusPoints = 500;
+        } else {
+            targetTier = "SILVER";
+            bonusPoints = 200;
+        }
+
+        if (this.memberProfile == null) {
+            String autoMemberId = "M-AUTO-" + (this.confirmationNumber != null ? this.confirmationNumber.replace("-", "") : "100");
+            this.memberProfile = new Member(autoMemberId, targetTier, bonusPoints);
+            lastPromotionMessage = String.format(
+                    "🎉 Long-Stay Reward (%d days): Automatically enrolled as %s Member (%s) with %d bonus loyalty points!",
+                    this.stayDays, targetTier, autoMemberId, bonusPoints);
+            return lastPromotionMessage;
+        } else {
+            boolean upgraded = this.memberProfile.upgradeTierIfHigher(targetTier, bonusPoints);
+            if (upgraded) {
+                lastPromotionMessage = String.format(
+                        "🎉 Long-Stay Reward (%d days): Upgraded to %s Member with +%d bonus loyalty points! (Total Points: %d)",
+                        this.stayDays, targetTier, bonusPoints, this.memberProfile.getPoints());
+            } else {
+                lastPromotionMessage = String.format(
+                        "🎉 Long-Stay Reward (%d days): Retained %s tier and awarded +%d bonus loyalty points! (Total Points: %d)",
+                        this.stayDays, this.memberProfile.getTierType(), bonusPoints, this.memberProfile.getPoints());
+            }
+            return lastPromotionMessage;
+        }
     }
 
     @Override
@@ -187,13 +326,41 @@ public class Guest implements Serializable, Comparable<Guest> {
         return Objects.hash(confirmationNumber);
     }
 
+    public String toDetailedCard() {
+        String roomNo = (assignedRoom != null)
+                ? assignedRoom.getRoomNumber() + " (" + assignedRoom.getRoomType() + ")"
+                : "Unassigned";
+        String tier = (memberProfile != null)
+                ? memberProfile.getTierType() + " (" + memberProfile.getPoints() + " pts)"
+                : "Non-Member (0 pts)";
+        String prefType = (preferredRoomType == null) ? "Any" : preferredRoomType;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("--------------------------------------------------\n");
+        sb.append(String.format("Confirmation No : %s%n", confirmationNumber));
+        sb.append(String.format("Guest Name      : %s%n", name));
+        sb.append(String.format("Guest Type      : %s%n", type));
+        sb.append(String.format("Stay Duration   : %d night(s)%n", stayDays));
+        sb.append(String.format("Preferred Room  : %s%n", prefType));
+        sb.append(String.format("Assigned Room   : %s%n", roomNo));
+        sb.append(String.format("Member Tier     : %s%n", tier));
+        sb.append(String.format("Status          : %s%n", status));
+        sb.append(String.format("Billing Details : %s%n", billingDetails));
+        if (isPointsRedeemed) {
+            sb.append(String.format("Point Discount  : 2-Day Free Stay (-%d pts)%n", redeemedPoints));
+        }
+        sb.append("--------------------------------------------------");
+        return sb.toString();
+    }
+
     @Override
     public String toString() {
         String roomNo = (assignedRoom != null) ? assignedRoom.getRoomNumber() : "Unassigned";
         String tier = (memberProfile != null) ? memberProfile.getTierType() : "Non-Member";
         int pts = (memberProfile != null) ? memberProfile.getPoints() : 0;
+        String prefType = (preferredRoomType == null) ? "Any" : preferredRoomType;
 
-        return String.format("Conf. No: %-8s | Name: %-15s | Type: %-7s | Tier: %-8s (%4d pts) | Room: %-6s | Status: %-10s | Billing: %s",
-                confirmationNumber, name, type, tier, pts, roomNo, status, billingDetails);
+        return String.format("Conf. No: %-8s | Name: %-15s | Type: %-7s | Stay: %2d nights | Tier: %-8s (%4d pts) | Pref: %-6s | Room: %-6s | Status: %-10s | Billing: %s",
+                confirmationNumber, name, type, stayDays, tier, pts, prefType, roomNo, status, billingDetails);
     }
 }

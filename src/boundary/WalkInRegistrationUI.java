@@ -1,11 +1,11 @@
 /*
- * Module: Walk-In Registrations & Standard Booking Procedure (Boundary UI Component)
- * Author: LAW QINQI
- * 
- * Description:
- * Boundary class handling console user interaction for Walk-In Registrations & Standard Booking.
- * Strictly adheres to ECB constraints (communicates only with Actor and WalkInRegistrationControl).
- */
+Module: Walk-In Registrations & Standard Booking Procedure (Boundary UI Component)
+Author: LAW QINQI 
+
+Description:
+Boundary class handling console user interaction for Walk-In Registrations & Standard Booking.
+Strictly adheres to ECB constraints (communicates only with Actor and WalkInRegistrationControl).
+*/
 package boundary;
 
 import control.WalkInRegistrationControl;
@@ -17,18 +17,15 @@ public class WalkInRegistrationUI {
     private Scanner sc;
     private WalkInRegistrationControl control;
 
-    /**
-     * Standalone use: owns its own Scanner over System.in.
-     */
+    // Standalone use: owns its own Scanner over System.in.
     public WalkInRegistrationUI(WalkInRegistrationControl control) {
         this(control, new Scanner(System.in));
     }
 
-    /**
-     * Preferred when launched from another boundary class (e.g. MainMenuUI):
-     * reuses the caller's Scanner instead of opening a second one on System.in,
-     * which would otherwise silently drop buffered input.
-     */
+    /*
+    Preferred when launched from another boundary class (e.g. MainMenuUI):
+    reuses the caller's Scanner instead of opening a second one on System.in, which would otherwise silently drop buffered input.
+    */
     public WalkInRegistrationUI(WalkInRegistrationControl control, Scanner sc) {
         this.control = control;
         this.sc = sc;
@@ -81,31 +78,80 @@ public class WalkInRegistrationUI {
 
     private void registerWalkIn() {
         System.out.print("Enter guest name: ");
-        String name = sc.nextLine();
-        System.out.print("Enter billing details: ");
-        String billing = sc.nextLine();
+        String name = sc.nextLine().trim();
+        System.out.print("Enter stay duration (in nights/days): ");
+        int stayDays = readInt("");
+        if (stayDays < 1) {
+            stayDays = 1;
+        }
+
+        String preferredType = promptRoomType();
+        System.out.print("Enter billing details (e.g. Cash / Credit Card): ");
+        String billing = sc.nextLine().trim();
+
         try {
-            Guest g = control.registerWalkIn(name, billing);
-            System.out.println("Registered walk-in guest. Confirmation No: " + g.getConfirmationNumber()
-                    + " | Queue position: " + control.getQueueSize());
+            Guest g = control.registerWalkIn(name, billing, preferredType, stayDays);
+            System.out.println("\n==================================================");
+            System.out.println("         WALK-IN REGISTRATION SUCCESSFUL         ");
+            System.out.println("==================================================");
+            System.out.println(g.toDetailedCard());
+            System.out.println("Queue Position : " + control.getQueueSize());
+            System.out.println("==================================================");
+
+            if (g.getLastPromotionMessage() != null) {
+                System.out.println("\n" + g.getLastPromotionMessage());
+            }
         } catch (IllegalArgumentException ex) {
-            System.out.println("Could not register walk-in guest: " + ex.getMessage());
+            System.out.println(">> Could not register walk-in guest: " + ex.getMessage());
         }
     }
 
     private void registerBooking() {
         System.out.print("Enter confirmation number ('SG-' is not needed): ");
-        String conf = sc.nextLine();
+        String conf = sc.nextLine().trim();
         System.out.print("Enter guest name: ");
-        String name = sc.nextLine();
-        System.out.print("Enter billing details: ");
-        String billing = sc.nextLine();
+        String name = sc.nextLine().trim();
+        System.out.print("Enter stay duration (in nights/days): ");
+        int stayDays = readInt("");
+        if (stayDays < 1) {
+            stayDays = 1;
+        }
+
+        String preferredType = promptRoomType();
+        System.out.print("Enter billing details (e.g. Paid / Card): ");
+        String billing = sc.nextLine().trim();
+
         try {
-            Guest g = control.registerBooking(conf, name, billing);
-            System.out.println("Registered booked guest. Confirmation No: " + g.getConfirmationNumber()
-                    + " | Queue position: " + control.getQueueSize());
+            Guest g = control.registerBooking(conf, name, billing, preferredType, stayDays);
+            System.out.println("\n==================================================");
+            System.out.println("         STANDARD BOOKING SUCCESSFUL              ");
+            System.out.println("==================================================");
+            System.out.println(g.toDetailedCard());
+            System.out.println("Queue Position : " + control.getQueueSize());
+            System.out.println("==================================================");
+
+            if (g.getLastPromotionMessage() != null) {
+                System.out.println("\n" + g.getLastPromotionMessage());
+            }
         } catch (IllegalArgumentException ex) {
-            System.out.println("Could not register booked guest: " + ex.getMessage());
+            System.out.println(">> Could not register booked guest: " + ex.getMessage());
+        }
+    }
+
+    private String promptRoomType() {
+        System.out.println("Preferred Room Type:");
+        System.out.println("0. Any");
+        System.out.println("1. Single");
+        System.out.println("2. Double");
+        System.out.println("3. Deluxe");
+        System.out.println("4. Suite");
+        int choice = readInt("Choose room type: ");
+        switch (choice) {
+            case 1: return "Single";
+            case 2: return "Double";
+            case 3: return "Deluxe";
+            case 4: return "Suite";
+            default: return null;
         }
     }
 
@@ -121,8 +167,8 @@ public class WalkInRegistrationUI {
             System.out.println("No clean/available room found - guest remains at front of queue.");
         } else {
             System.out.println("Checked in " + processed.getName()
-                    + " -> Room " + processed.getAssignedRoom().getRoomNumber());
-        }
+                    + " -> Room " + processed.getAssignedRoom().getRoomNumber()
+                    + " (" + processed.getAssignedRoom().getRoomType() + ")");        }
     }
 
     private void checkOutGuest() {
