@@ -79,7 +79,7 @@ public class FrontDeskServiceUI {
         }
         
         private void displayGuest(Guest guest){
-            System.out.println("\n==================================================");
+            System.out.println("\n====================================================");
             System.out.println("            GUEST INFORMATION");
             System.out.println("====================================================");
             
@@ -128,7 +128,7 @@ public class FrontDeskServiceUI {
                     ? guest.getAssignedRoom().getRoomType()
                     : (guest.getPreferredRoomType() != null ? guest.getPreferredRoomType() : "Single");
             
-            System.out.println("\n===================================================");
+            System.out.println("\n=====================================================");
             System.out.println("           QUERY BILLING DETAILS");
             System.out.println("=====================================================");
             System.out.println("Confirmation No: " + guest.getConfirmationNumber());
@@ -137,7 +137,7 @@ public class FrontDeskServiceUI {
             System.out.println("Room Type Rate:  RM " + String.format("%.2f", bill.nightlyRate) + " / night (" + roomType + ")");
             System.out.println("Stay Duration:   " + bill.stayDays + " night(s)");
             System.out.println("Billing Note:    " + guest.getBillingDetails());
-            System.out.println("------------------------------------------------------");
+            System.out.println("-----------------------------------------------------");
             
             System.out.printf("%-28s RM %8.2f%n", "Base Room Charges:", bill.baseCharge);
             if (bill.pointDiscount > 0) {
@@ -146,9 +146,9 @@ public class FrontDeskServiceUI {
             System.out.printf("%-28s RM %8.2f%n", "Subtotal:", bill.subtotal);
             System.out.printf("%-28s RM %8.2f%n", "Tax (6% SST):", bill.tax);
             
-            System.out.println("------------------------------------------------------");
+            System.out.println("-----------------------------------------------------");
             System.out.printf("%-28s RM %8.2f%n", "Grand Total:", bill.total);
-            System.out.println("======================================================");
+            System.out.println("=====================================================");
         }
         
         public void checkRoom(){
@@ -168,8 +168,8 @@ public class FrontDeskServiceUI {
             }
             
             String availability = room.isAvailable() ? "Available" : "Not Available";
-            System.out.println("\n=================================================");
-            System.out.println("           ROOM INFORMATION");
+            System.out.println("\n===================================================");
+            System.out.println("                    ROOM INFORMATION");
             System.out.println("===================================================");
             System.out.println("Room Number:     " + room.getRoomNumber());
             System.out.println("Room Type:       " + room.getRoomType() + " (RM " + String.format("%.2f", FrontDeskServiceControl.getRoomRate(room.getRoomType())) + "/night)");
@@ -180,14 +180,32 @@ public class FrontDeskServiceUI {
             
         public void frontDeskReport1(){
             DoublyLinkedList<Guest> guests = controller.getGuestList();
-            System.out.println("\n=========================================================================================");
-            System.out.println("                              GUEST BILLING SUMMARY REPORT");
-            System.out.println("=========================================================================================");           
-            System.out.printf("%-10s %-16s %-6s %-12s %-15s %-25s%n", "Conf. No", "Guest Name", "Stay", "Room", "Tier (Pts)", "Billing Details");
-            System.out.println("-----------------------------------------------------------------------------------------");
+            
+            double totalBaseCharges = 0;
+            double totalDiscount = 0;
+            double totalTax = 0;
+            double totalRevenue = 0;
+            
+            int totalNights = 0;
+            int totalGuests = guests.getNumberOfEntries();
+            
+            double highestBill = 0;
+            double lowestBill = Double.MAX_VALUE;
+            
+            System.out.println("\n========================================================================================================================================================");
+            System.out.println("                                                    GUEST BILLING SUMMARY REPORT");
+            System.out.println("========================================================================================================================================================");           
+            System.out.printf("%-11s %-16s %-6s %-14s %-14s %13s %13s       %-35s%n", "Conf. No", "Guest Name", "Stay", "Room", "Tier (Pts)", "Sub Total", "Total", "Billing Details");
+            System.out.println("--------------------------------------------------------------------------------------------------------------------------------------------------------");
             
             for (int i = 0; i < guests.getNumberOfEntries(); i++){
                 Guest guest = guests.getEntry(i);
+                
+                FrontDeskServiceControl.BillingBreakdown bill = controller.calculateBilling(guest.getConfirmationNumber());
+                
+                if(bill == null){
+                    continue;
+                }
                 
                 String roomNumber = (guest.getAssignedRoom()!= null)
                         ? guest.getAssignedRoom().getRoomNumber() + " (" + guest.getAssignedRoom().getRoomType() + ")"
@@ -196,15 +214,66 @@ public class FrontDeskServiceUI {
                         ? guest.getMemberProfile().getTierType() + " (" + guest.getMemberProfile().getPoints() + ")"
                         : "Non-Member";
                 
-                System.out.printf("%-10s %-16s %2d nts %-12s %-15s %-25s%n", 
+                System.out.printf("%-11s %-16s %-6s %-14s %-15s RM %10.2f RM %10.2f     %-30s%n", 
                         guest.getConfirmationNumber(), 
                         guest.getName(), 
-                        guest.getStayDays(),
+                        guest.getStayDays() + "nts",
                         roomNumber, 
                         tier,
+                        bill.subtotal,
+                        bill.total,
                         guest.getBillingDetails());
+                
+                totalNights += bill.stayDays;
+                totalBaseCharges += bill.baseCharge;
+                totalDiscount += bill.pointDiscount;
+                totalTax += bill.tax;
+                totalRevenue += bill.total;
+                
+                if(bill.total > highestBill){
+                    highestBill = bill.total;
+                }
+                
+                if(bill.total < lowestBill){
+                    lowestBill = bill.total;
+                }
             }
-            System.out.println("=========================================================================================");
+            
+            double averageStay = totalGuests > 0
+                    ? (double) totalNights / totalGuests
+                    : 0;
+            
+            double averageBill = totalGuests > 0 
+                    ? totalRevenue/ totalGuests
+                    : 0;
+            
+            System.out.println("--------------------------------------------------------------------------------------------------------------------------------------------------------");
+            System.out.printf("%-28s : %d%n",
+                    "Total Guests", totalGuests);
+            System.out.printf("%-28s : %d nights%n",
+                    "Total Nights", totalNights);
+            System.out.printf("%-28s : RM %.2f%n", 
+                    "Total Base Charges", totalBaseCharges);
+            System.out.printf("%-28s : RM %.2f%n",
+                    "Total Discounts", totalDiscount);
+            System.out.printf("%-28s : RM %.2f%n",
+                    "Total Tax (6% SST)", totalTax);
+            System.out.printf("%-28s : RM %.2f%n",
+                    "Total Revenue", totalRevenue);
+            
+            System.out.printf("%-28s : %.2f nights%n", 
+                    "Average Stay Duration",averageStay);
+            System.out.printf("%-28s : RM %.2f%n",
+                    "Average Guest Bill", averageBill);
+            
+            if(totalGuests > 0){
+                System.out.printf("%-28s : RM %.2f%n",
+                        "Highest Guest Bill", highestBill);
+                System.out.printf("%-28s : RM %.2f%n",
+                        "Lowest Guest Bill", lowestBill);
+            
+            }
+            System.out.println("========================================================================================================================================================");
         }
         
         public void frontDeskReport2(){
