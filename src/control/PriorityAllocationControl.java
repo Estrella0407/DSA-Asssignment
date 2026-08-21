@@ -319,22 +319,6 @@ public class PriorityAllocationControl {
     }
 
     /**
-     * Linear search for the first available, ready-for-check-in room.
-     */
-    private Room findFirstAvailableCleanRoom() {
-        if (roomList == null) {
-            return null;
-        }
-        for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
-            Room r = roomList.getEntry(i);
-            if (r != null && r.isRoomAvailable() && STATUS_READY.equalsIgnoreCase(r.getCleaningStatus())) {
-                return r;
-            }
-        }
-        return null;
-    }
-
-    /**
      * Linear search for room by number.
      */
     public Room findRoomByNumber(String roomNumber) {
