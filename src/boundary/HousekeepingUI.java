@@ -8,10 +8,7 @@
  */
 package boundary;
 
-import adt.DoublyLinkedListInterface;
 import control.HousekeepingControl;
-import entity.HousekeepingTask;
-import entity.Room;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 
@@ -81,9 +78,9 @@ public class HousekeepingUI {
     }
 
     private void viewRoomCleaningStatus() {
-        DoublyLinkedListInterface<Room> rooms = control.getRoomList();
+        HousekeepingControl.RoomView[] rooms = control.getRoomViews();
         System.out.println("\n---------------- ROOM STATUS ----------------");
-        if (rooms.isEmpty()) {
+        if (rooms.length == 0) {
             System.out.println("No rooms available in the system.");
             return;
         }
@@ -91,9 +88,9 @@ public class HousekeepingUI {
         System.out.printf("%-8s %-8s %-24s %-15s %-24s%n",
                 "Room", "Type", "Cleaning Status", "Availability", "Next Status");
         System.out.println("-----------------------------------------------------------------------");
-        for (int i = 0; i < rooms.getNumberOfEntries(); i++) {
-            Room room = rooms.getEntry(i);
-            String next = control.getNextExpectedStatus(room);
+        for (int i = 0; i < rooms.length; i++) {
+            HousekeepingControl.RoomView room = rooms[i];
+            String next = room.getNextStatus();
             System.out.printf("%-8s %-8s %-24s %-15s %-24s%n",
                     room.getRoomNumber(), room.getRoomType(), room.getCleaningStatus(),
                     room.isAvailable() ? "Available" : "Unavailable",
@@ -104,7 +101,7 @@ public class HousekeepingUI {
     private void updateCleaningStatus() {
         System.out.print("Enter room number: ");
         String roomNumber = scanner.nextLine().trim();
-        Room room = control.findRoomByNumber(roomNumber);
+        HousekeepingControl.RoomView room = control.getRoomView(roomNumber);
         if (room == null) {
             System.out.println("Room not found.");
             return;
@@ -122,7 +119,7 @@ public class HousekeepingUI {
 
         String newStatus;
         if (mode == 1) {
-            newStatus = control.getNextExpectedStatus(room);
+            newStatus = room.getNextStatus();
             if (newStatus == null) {
                 System.out.println("Room " + room.getRoomNumber()
                         + " is already Ready for Check-In.");
@@ -149,16 +146,16 @@ public class HousekeepingUI {
         String remarks = scanner.nextLine();
 
         try {
-            HousekeepingTask task;
+            HousekeepingControl.TaskView task;
             if (mode == 1) {
-                task = control.updateCleaningStatus(roomNumber, newStatus, staffName, remarks);
+                task = control.updateCleaningStatusForUI(roomNumber, newStatus, staffName, remarks);
             } else {
-                task = control.correctCleaningStatus(roomNumber, newStatus, staffName, remarks);
+                task = control.correctCleaningStatusForUI(roomNumber, newStatus, staffName, remarks);
             }
 
             System.out.println("Status updated successfully.");
             System.out.println("Task ID: " + task.getTaskId());
-            System.out.println("Room " + room.getRoomNumber() + " -> " + room.getCleaningStatus());
+            System.out.println("Room " + room.getRoomNumber() + " -> " + task.getNewStatus());
         } catch (IllegalArgumentException | IllegalStateException ex) {
             System.out.println("Update failed: " + ex.getMessage());
         }
@@ -167,7 +164,7 @@ public class HousekeepingUI {
     private void updateRoomAvailability() {
         System.out.print("Enter room number: ");
         String roomNumber = scanner.nextLine().trim();
-        Room room = control.findRoomByNumber(roomNumber);
+        HousekeepingControl.RoomView room = control.getRoomView(roomNumber);
         if (room == null) {
             System.out.println("Room not found.");
             return;
@@ -185,7 +182,7 @@ public class HousekeepingUI {
         try {
             control.updateRoomAvailability(roomNumber, choice == 1);
             System.out.println("Room " + roomNumber + " is now "
-                    + (room.isAvailable() ? "Available" : "Unavailable") + ".");
+                    + (choice == 1 ? "Available" : "Unavailable") + ".");
             System.out.println("Note: availability is separate from cleaning status.");
         } catch (IllegalArgumentException ex) {
             System.out.println(ex.getMessage());
@@ -197,12 +194,7 @@ public class HousekeepingUI {
         String roomNumber = scanner.nextLine().trim();
 
         try {
-            HousekeepingTask task;
-            if (roomNumber.isEmpty()) {
-                task = control.rollbackLatestUpdate();
-            } else {
-                task = control.rollbackLatestUpdateForRoom(roomNumber);
-            }
+            HousekeepingControl.TaskView task = control.rollbackLatestUpdateForUI(roomNumber);
 
             if (task == null) {
                 System.out.println("No housekeeping update is available to rollback.");
@@ -212,7 +204,7 @@ public class HousekeepingUI {
             System.out.println("Rollback completed.");
             System.out.println("Removed task : " + task.getTaskId());
             System.out.println("Room         : "
-                    + (task.getRoom() == null ? "-" : task.getRoom().getRoomNumber()));
+                    + task.getRoomNumber());
             System.out.println("Changed back : " + task.getNewStatus() + " -> " + task.getPreviousStatus());
         } catch (IllegalArgumentException ex) {
             System.out.println("Rollback failed: " + ex.getMessage());
@@ -228,7 +220,8 @@ public class HousekeepingUI {
         String remarks = scanner.nextLine();
 
         try {
-            HousekeepingTask task = control.handleLateCheckout(roomNumber, staffName, remarks);
+            HousekeepingControl.TaskView task
+                    = control.handleLateCheckoutForUI(roomNumber, staffName, remarks);
             System.out.println("Late check-out handled.");
             System.out.println("Cleaning schedule reset to Dirty.");
             System.out.println("Task ID: " + task.getTaskId());
@@ -238,20 +231,20 @@ public class HousekeepingUI {
     }
 
     private void viewTaskLog() {
-        DoublyLinkedListInterface<HousekeepingTask> tasks = control.getTaskLog();
+        HousekeepingControl.TaskView[] tasks = control.getTaskViews();
         System.out.println("\n---------------- HOUSEKEEPING TASK LOG ----------------");
-        if (tasks.isEmpty()) {
+        if (tasks.length == 0) {
             System.out.println("No housekeeping tasks have been recorded yet.");
             return;
         }
 
         System.out.println("Latest task is kept at the end of the Linear ADT for LIFO rollback.");
         System.out.println("----------------------------------------------------------------------------------------------");
-        for (int i = 0; i < tasks.getNumberOfEntries(); i++) {
-            System.out.println(tasks.getEntry(i));
+        for (int i = 0; i < tasks.length; i++) {
+            System.out.println(tasks[i]);
         }
         System.out.println("----------------------------------------------------------------------------------------------");
-        System.out.println("Total tasks: " + tasks.getNumberOfEntries());
+        System.out.println("Total tasks: " + tasks.length);
     }
 
     private void generateRoomStatusReport() {
@@ -328,10 +321,10 @@ public class HousekeepingUI {
                 "Room No.", "Type", "Cleaning Status", "Availability", "Next Status");
         System.out.println("-----------------------------------------------------------------------");
 
-        Room[] rooms = report.getRooms();
+        HousekeepingControl.RoomView[] rooms = report.getRoomViews();
         for (int i = 0; i < rooms.length; i++) {
-            Room room = rooms[i];
-            String next = control.getNextExpectedStatus(room);
+            HousekeepingControl.RoomView room = rooms[i];
+            String next = control.getNextExpectedStatus(room.getCleaningStatus());
             System.out.printf("%-10s %-8s %-26s %-16s %-22s%n",
                     room.getRoomNumber(), room.getRoomType(), room.getCleaningStatus(),
                     room.isAvailable() ? "Available" : "Unavailable",
@@ -369,10 +362,10 @@ public class HousekeepingUI {
                 "Task", "Room", "Staff", "Previous", "New Status", "Date/Time");
         System.out.println("--------------------------------------------------------------------------------------------------------");
 
-        HousekeepingTask[] tasks = report.getTasks();
+        HousekeepingControl.TaskView[] tasks = report.getTaskViews();
         for (int i = 0; i < tasks.length; i++) {
-            HousekeepingTask task = tasks[i];
-            String room = task.getRoom() == null ? "-" : task.getRoom().getRoomNumber();
+            HousekeepingControl.TaskView task = tasks[i];
+            String room = task.getRoomNumber();
             String time = task.getTaskDateTime() == null ? "-"
                     : task.getTaskDateTime().format(formatter);
             System.out.printf("%-7s %-7s %-16s %-22s %-22s %-17s%n",

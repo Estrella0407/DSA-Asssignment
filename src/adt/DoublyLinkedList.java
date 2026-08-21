@@ -1,6 +1,6 @@
 /*
 Module: Linear ADT (Collection ADT Implementation)
-Author: LAW QINQI
+Author: LAW QINQI, Neo Ai Yik
 
 Description:
 Doubly linked-list based implementation of the custom Linear ADT.

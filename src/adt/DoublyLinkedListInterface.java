@@ -1,6 +1,6 @@
 /*
 Module: Linear ADT (Collection ADT Specification)
-Author: LAW QINQI
+Author: LAW QINQI, NEO AI YIK
  
 Description:
 Custom Linear ADT interface (doubly linked-list based, FIFO/LIFO capable).
