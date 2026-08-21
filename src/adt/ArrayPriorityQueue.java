@@ -115,4 +115,18 @@ public class ArrayPriorityQueue<T extends Comparable<T>> implements PriorityQueu
         }
         return sb.toString();
     }
+
+    @Override
+    public T dequeueAt(int index) {
+        if (index < 0 || index >= size) {
+            return null;
+        }
+        T removed = array[index];
+        for (int i = index; i < size - 1; i++) {
+            array[i] = array[i + 1];
+        }
+        array[size - 1] = null;
+        size--;
+        return removed;
+    }
 }

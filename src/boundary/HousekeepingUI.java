@@ -88,14 +88,14 @@ public class HousekeepingUI {
             return;
         }
 
-        System.out.printf("%-8s %-24s %-15s %-24s%n",
-                "Room", "Cleaning Status", "Availability", "Next Status");
+        System.out.printf("%-8s %-8s %-24s %-15s %-24s%n",
+                "Room", "Type", "Cleaning Status", "Availability", "Next Status");
         System.out.println("-----------------------------------------------------------------------");
         for (int i = 0; i < rooms.getNumberOfEntries(); i++) {
             Room room = rooms.getEntry(i);
             String next = control.getNextExpectedStatus(room);
-            System.out.printf("%-8s %-24s %-15s %-24s%n",
-                    room.getRoomNumber(), room.getCleaningStatus(),
+            System.out.printf("%-8s %-8s %-24s %-15s %-24s%n",
+                    room.getRoomNumber(), room.getRoomType(), room.getCleaningStatus(),
                     room.isAvailable() ? "Available" : "Unavailable",
                     next == null ? "-" : next);
         }
@@ -324,16 +324,16 @@ public class HousekeepingUI {
                 + (report.getAvailabilityFilter() == null ? "ALL"
                         : (report.getAvailabilityFilter() ? "Available" : "Unavailable")));
         System.out.println("-----------------------------------------------------------------------");
-        System.out.printf("%-10s %-26s %-16s %-22s%n",
-                "Room No.", "Cleaning Status", "Availability", "Next Status");
+        System.out.printf("%-10s %-8s %-26s %-16s %-22s%n",
+                "Room No.", "Type", "Cleaning Status", "Availability", "Next Status");
         System.out.println("-----------------------------------------------------------------------");
 
         Room[] rooms = report.getRooms();
         for (int i = 0; i < rooms.length; i++) {
             Room room = rooms[i];
             String next = control.getNextExpectedStatus(room);
-            System.out.printf("%-10s %-26s %-16s %-22s%n",
-                    room.getRoomNumber(), room.getCleaningStatus(),
+            System.out.printf("%-10s %-8s %-26s %-16s %-22s%n",
+                    room.getRoomNumber(), room.getRoomType(), room.getCleaningStatus(),
                     room.isAvailable() ? "Available" : "Unavailable",
                     next == null ? "-" : next);
         }

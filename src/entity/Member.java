@@ -71,10 +71,14 @@ public class Member implements Serializable, Comparable<Member> {
      * Helper priority weight for non-linear priority queue room allocation.
      */
     public int getTierPriorityWeight() {
-        if (tierType == null) {
+        return getTierWeight(this.tierType);
+    }
+
+    public static int getTierWeight(String tier) {
+        if (tier == null) {
             return 0;
         }
-        switch (tierType.toUpperCase()) {
+        switch (tier.toUpperCase()) {
             case "DIAMOND":
                 return 5;
             case "PLATINUM":
@@ -88,6 +92,22 @@ public class Member implements Serializable, Comparable<Member> {
             default:
                 return 0;
         }
+    }
+
+    /**
+     * Upgrades tier if the target tier has a higher priority weight than current,
+     * and adds bonus loyalty points.
+     */
+    public boolean upgradeTierIfHigher(String targetTier, int bonusPoints) {
+        boolean upgraded = false;
+        if (targetTier != null && getTierWeight(targetTier) > getTierPriorityWeight()) {
+            this.tierType = targetTier.toUpperCase();
+            upgraded = true;
+        }
+        if (bonusPoints > 0) {
+            addPoints(bonusPoints);
+        }
+        return upgraded;
     }
 
     @Override

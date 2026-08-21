@@ -59,11 +59,18 @@ public class PriorityAllocationControl {
     }
 
     private void seedSampleData() {
-        // Pre-populate with sample VIP guests to demonstrate auto-reordering
-        Guest g1 = new Guest("VIP-1001", "Alice Tan", false, "Booked", null, "Credit Card", new Member("M101", "GOLD", 500));
-        Guest g2 = new Guest("VIP-1002", "Dato Steven", false, "Booked", null, "Corporate Billing", new Member("M102", "DIAMOND", 2500));
-        Guest g3 = new Guest("VIP-1003", "Bob Lee", false, "Booked", null, "Credit Card", new Member("M103", "PLATINUM", 1200));
-        Guest g4 = new Guest("VIP-1004", "Dr. Clara", false, "Booked", null, "Direct Transfer", new Member("M104", "ELITE", 1800));
+        // Pre-populate with sample VIP guests to demonstrate auto-reordering & room types
+        Guest g1 = new Guest("VIP-1001", "Alice Tan", false, "Booked", null, "Credit Card", new Member("M101", "GOLD", 500), 3);
+        g1.setPreferredRoomType(Room.TYPE_DOUBLE);
+
+        Guest g2 = new Guest("VIP-1002", "Dato Steven", false, "Booked", null, "Corporate Billing", new Member("M102", "DIAMOND", 2500), 5);
+        g2.setPreferredRoomType(Room.TYPE_SUITE);
+
+        Guest g3 = new Guest("VIP-1003", "Bob Lee", false, "Booked", null, "Credit Card", new Member("M103", "PLATINUM", 1200), 2);
+        g3.setPreferredRoomType(Room.TYPE_DELUXE);
+
+        Guest g4 = new Guest("VIP-1004", "Dr. Clara", false, "Booked", null, "Direct Transfer", new Member("M104", "ELITE", 1800), 4);
+        g4.setPreferredRoomType(Room.TYPE_SINGLE);
 
         priorityQueue.enqueue(g1);
         priorityQueue.enqueue(g2);
@@ -86,6 +93,18 @@ public class PriorityAllocationControl {
      * Create and enqueue a VIP guest from field inputs (ECB compliant).
      */
     public Guest registerVIPGuest(String confNumber, String name, String memberId, String tier, int points, String billing) {
+        return registerVIPGuest(confNumber, name, memberId, tier, points, billing, null, 1, false);
+    }
+
+    public Guest registerVIPGuest(String confNumber, String name, String memberId, String tier, int points, String billing, String preferredRoomType) {
+        return registerVIPGuest(confNumber, name, memberId, tier, points, billing, preferredRoomType, 1, false);
+    }
+
+    public Guest registerVIPGuest(String confNumber, String name, String memberId, String tier, int points, String billing, String preferredRoomType, int stayDays) {
+        return registerVIPGuest(confNumber, name, memberId, tier, points, billing, preferredRoomType, stayDays, false);
+    }
+
+    public Guest registerVIPGuest(String confNumber, String name, String memberId, String tier, int points, String billing, String preferredRoomType, int stayDays, boolean redeemPoints) {
         if (confNumber == null || confNumber.trim().isEmpty()) {
             throw new IllegalArgumentException("Confirmation number cannot be empty.");
         }
@@ -113,7 +132,16 @@ public class PriorityAllocationControl {
 
         Member member = new Member(cleanMemberId, normalizedTier, Math.max(0, points));
         Guest guest = new Guest(cleanConf, name.trim(), false, "Booked", null,
-                (billing == null || billing.trim().isEmpty()) ? "Paid" : billing.trim(), member);
+                (billing == null || billing.trim().isEmpty()) ? "Paid" : billing.trim(), member, stayDays);
+        guest.setPreferredRoomType(preferredRoomType == null ? null : Room.normalizeRoomType(preferredRoomType));
+
+        // Evaluate graduated long-stay milestone promotions
+        guest.applyLongStayPromotion();
+
+        // If requested and eligible, redeem points for 2-day free stay
+        if (redeemPoints) {
+            guest.redeemPointsForStay(guest.getPreferredRoomType());
+        }
 
         if (priorityQueue.enqueue(guest)) {
             return guest;
@@ -121,10 +149,6 @@ public class PriorityAllocationControl {
         return null;
     }
 
-    /**
-     * Linear search across both the pending priority queue and the allocated
-     * VIP records to check whether a confirmation number is already in use.
-     */
     private boolean isConfirmationNumberTaken(String confirmationNumber) {
         for (int i = 0; i < priorityQueue.getSize(); i++) {
             Guest g = priorityQueue.getEntry(i);
@@ -141,10 +165,6 @@ public class PriorityAllocationControl {
         return false;
     }
 
-    /**
-     * Linear search across both the pending priority queue and the allocated
-     * VIP records to check whether a member ID is already registered.
-     */
     private boolean isMemberIdTaken(String memberId) {
         for (int i = 0; i < priorityQueue.getSize(); i++) {
             Guest g = priorityQueue.getEntry(i);
@@ -162,46 +182,88 @@ public class PriorityAllocationControl {
         }
         return false;
     }
-    
-    /**
-    * Checks whether a confirmation number is already registered (pending
-    * queue or allocated records), without performing any registration.
-    * Exposed so the Boundary layer can validate input immediately, before
-    * the full reservation form is completed.
-    */
-   public boolean isConfirmationNumberRegistered(String confirmationNumber) {
-       if (confirmationNumber == null || confirmationNumber.trim().isEmpty()) {
-           return false;
-       }
-       return isConfirmationNumberTaken(confirmationNumber.trim());
-   }
 
-   /**
-    * Checks whether a member ID is already registered (pending queue or
-    * allocated records), without performing any registration.
-    */
-   public boolean isMemberIdRegistered(String memberId) {
-       if (memberId == null || memberId.trim().isEmpty()) {
-           return false;
-       }
-       return isMemberIdTaken(memberId.trim());
-   }
+    public boolean isConfirmationNumberRegistered(String confirmationNumber) {
+        if (confirmationNumber == null || confirmationNumber.trim().isEmpty()) {
+            return false;
+        }
+        return isConfirmationNumberTaken(confirmationNumber.trim());
+    }
+
+    public boolean isMemberIdRegistered(String memberId) {
+        if (memberId == null || memberId.trim().isEmpty()) {
+            return false;
+        }
+        return isMemberIdTaken(memberId.trim());
+    }
 
     /**
-     * Automatically search for the first available, clean room and allocate to
-     * the highest-priority VIP guest waiting in the queue.
+     * Scans the priority queue in order and allocates a room to the first
+     * (i.e. highest-priority) VIP guest whose preferred room type currently
+     * has a ready, vacant room. If the top guest is blocked (their type
+     * isn't ready), lower-priority guests are checked in turn rather than
+     * leaving ready rooms empty - but a guest is only ever skipped by
+     * someone with STRICTLY lower priority; earlier-queued guests are never
+     * skipped over.
      */
     public Guest allocateFirstAvailableRoom() {
         if (priorityQueue.isEmpty()) {
             return null;
         }
 
-        Room availableRoom = findFirstAvailableCleanRoom();
-        if (availableRoom == null) {
-            return null; // No clean vacant room available
+        int size = priorityQueue.getSize();
+        for (int i = 0; i < size; i++) {
+            Guest candidate = priorityQueue.getEntry(i);
+            if (candidate == null) {
+                continue;
+            }
+            Room availableRoom = findFirstAvailableCleanRoom(candidate.getPreferredRoomType());
+            if (availableRoom != null) {
+                Guest dequeuedGuest = priorityQueue.dequeueAt(i);
+                return finalizeAllocation(dequeuedGuest, availableRoom);
+            }
         }
+        return null; // No ready room matches any waiting VIP's preferred type
+    }
 
-        return processAllocation(availableRoom);
+    /**
+     * Linear search for the first available, ready-for-check-in room.
+     * If preferredType is specified, returns only a room of that exact type.
+     * If preferredType is null, returns the first available ready room.
+     */
+    private Room findFirstAvailableCleanRoom(String preferredType) {
+        if (roomList == null) {
+            return null;
+        }
+        for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
+            Room r = roomList.getEntry(i);
+            if (r != null && r.isRoomAvailable() && STATUS_READY.equalsIgnoreCase(r.getCleaningStatus())) {
+                if (preferredType == null || r.getRoomType().equalsIgnoreCase(preferredType)) {
+                    return r;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves all available, clean rooms matching a specific room type
+     * (or all ready rooms if roomType is null or "Any").
+     */
+    public DoublyLinkedListInterface<Room> getAvailableCleanRoomsByType(String roomType) {
+        DoublyLinkedListInterface<Room> availableList = new DoublyLinkedList<>();
+        if (roomList == null) {
+            return availableList;
+        }
+        for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
+            Room r = roomList.getEntry(i);
+            if (r != null && r.isRoomAvailable() && STATUS_READY.equalsIgnoreCase(r.getCleaningStatus())) {
+                if (roomType == null || r.getRoomType().equalsIgnoreCase(roomType)) {
+                    availableList.insertLast(r);
+                }
+            }
+        }
+        return availableList;
     }
 
     /**
@@ -226,36 +288,30 @@ public class PriorityAllocationControl {
         if (nextGuest == null) {
             return null;
         }
+        return finalizeAllocation(nextGuest, room);
+    }
 
+    /**
+     * Shared finalization logic: assigns the room, checks the guest in,
+     * records the allocation for reporting, and updates tier metrics.
+     */
+    private Guest finalizeAllocation(Guest nextGuest, Room room) {
         nextGuest.assignRoom(room);
         nextGuest.checkIn();
         room.setAvailability(false);
 
-        // Keep in allocated records for reporting
         allocatedVipRecords.insertLast(nextGuest);
         totalPriorityProcessed++;
 
-        // Update tier distribution metrics
         if (nextGuest.getMemberProfile() != null) {
             String tier = nextGuest.getMemberProfile().getTierType().toUpperCase();
             switch (tier) {
-                case "DIAMOND":
-                    diamondCount++;
-                    break;
-                case "PLATINUM":
-                    platinumCount++;
-                    break;
-                case "ELITE":
-                    eliteCount++;
-                    break;
-                case "GOLD":
-                    goldCount++;
-                    break;
-                case "SILVER":
-                    silverCount++;
-                    break;
-                default:
-                    break;
+                case "DIAMOND": diamondCount++; break;
+                case "PLATINUM": platinumCount++; break;
+                case "ELITE": eliteCount++; break;
+                case "GOLD": goldCount++; break;
+                case "SILVER": silverCount++; break;
+                default: break;
             }
         }
 
@@ -371,23 +427,25 @@ public class PriorityAllocationControl {
         }
 
         // Step 3: Format tabular output
-        sb.append(String.format("%-10s | %-16s | %-10s | %-12s | %-8s | %-12s\n",
-                "Conf. No", "Guest Name", "Tier", "Points", "Room", "Billing"));
-        sb.append("-----------------------------------------------------------------------------------------\n");
+        sb.append(String.format("%-10s | %-16s | %-10s | %-6s | %-12s | %-12s | %-18s\n",
+                "Conf. No", "Guest Name", "Tier", "Stay", "Points", "Room (Type)", "Billing"));
+        sb.append("---------------------------------------------------------------------------------------------------------\n");
 
         if (count == 0) {
-            sb.append("                     No allocated VIP records matched the selected criteria.             \n");
+            sb.append("                               No allocated VIP records matched the selected criteria.                  \n");
         } else {
             for (int i = 0; i < count; i++) {
                 Guest g = filtered[i];
                 Member m = g.getMemberProfile();
-                String room = (g.getAssignedRoom() != null) ? g.getAssignedRoom().getRoomNumber() : "-";
-                sb.append(String.format("%-10s | %-16s | %-10s | %-12d | %-8s | %-12s\n",
-                        g.getConfirmationNumber(), g.getName(), m.getTierType(), m.getPoints(), room, g.getBillingDetails()));
+                String room = (g.getAssignedRoom() != null)
+                        ? g.getAssignedRoom().getRoomNumber() + " (" + g.getAssignedRoom().getRoomType() + ")"
+                        : "-";
+                sb.append(String.format("%-10s | %-16s | %-10s | %2d nts | %-12d | %-12s | %-18s\n",
+                        g.getConfirmationNumber(), g.getName(), m.getTierType(), g.getStayDays(), m.getPoints(), room, g.getBillingDetails()));
             }
         }
 
-        sb.append("-----------------------------------------------------------------------------------------\n");
+        sb.append("---------------------------------------------------------------------------------------------------------\n");
         sb.append(" Tier Breakdown Summary (All Time Allocations):\n");
         int total = (totalPriorityProcessed == 0) ? 1 : totalPriorityProcessed;
         sb.append(String.format("   Diamond  : %2d allocations (%5.1f%%)\n", diamondCount, (diamondCount * 100.0) / total));
@@ -396,7 +454,7 @@ public class PriorityAllocationControl {
         sb.append(String.format("   Gold     : %2d allocations (%5.1f%%)\n", goldCount, (goldCount * 100.0) / total));
         sb.append(String.format("   Silver   : %2d allocations (%5.1f%%)\n", silverCount, (silverCount * 100.0) / total));
         sb.append(String.format(" Total VIP Rooms Allocated: %d\n", totalPriorityProcessed));
-        sb.append("=========================================================================================\n");
+        sb.append("=========================================================================================================\n");
 
         return sb.toString();
     }
@@ -407,20 +465,20 @@ public class PriorityAllocationControl {
     // =========================================================================
     public String generatePriorityWaitlistReport(String tierFilter, Integer minPointsFilter) {
         StringBuilder sb = new StringBuilder();
-        sb.append("\n=========================================================================================\n");
-        sb.append("              REPORT 2: ACTIVE VIP PRIORITY WAITLIST & REAL-TIME AUDIT                   \n");
-        sb.append("=========================================================================================\n");
+        sb.append("\n=========================================================================================================\n");
+        sb.append("                               REPORT 2: ACTIVE VIP PRIORITY WAITLIST & REAL-TIME AUDIT                  \n");
+        sb.append("=========================================================================================================\n");
         sb.append(String.format("Filters -> Tier: %-10s | Min Points: %s\n",
                 (tierFilter == null ? "ALL" : tierFilter),
                 (minPointsFilter == null ? "0" : minPointsFilter)));
-        sb.append("-----------------------------------------------------------------------------------------\n");
-        sb.append(String.format("%-5s | %-10s | %-16s | %-10s | %-10s | %-15s\n",
-                "Pos", "Conf. No", "Guest Name", "Member Tier", "Points", "Status"));
-        sb.append("-----------------------------------------------------------------------------------------\n");
+        sb.append("---------------------------------------------------------------------------------------------------------\n");
+        sb.append(String.format("%-4s | %-10s | %-16s | %-10s | %-6s | %-10s | %-8s | %-15s\n",
+                "Pos", "Conf. No", "Guest Name", "Member Tier", "Stay", "Points", "Pref Type", "Status"));
+        sb.append("---------------------------------------------------------------------------------------------------------\n");
 
         int queueSize = priorityQueue.getSize();
         if (queueSize == 0) {
-            sb.append("                         No VIP guests currently in waitlist.                            \n");
+            sb.append("                                   No VIP guests currently in waitlist.                                  \n");
         } else {
             Guest[] temp = new Guest[queueSize];
             int count = 0;
@@ -438,20 +496,21 @@ public class PriorityAllocationControl {
             }
 
             if (count == 0) {
-                sb.append("                     No waiting VIP guests match the filter criteria.                    \n");
+                sb.append("                               No waiting VIP guests match the filter criteria.                          \n");
             } else {
                 for (int i = 0; i < count; i++) {
                     Guest g = temp[i];
                     Member m = g.getMemberProfile();
-                    sb.append(String.format("%-5d | %-10s | %-16s | %-10s | %-10d | %-15s\n",
-                            (i + 1), g.getConfirmationNumber(), g.getName(), m.getTierType(), m.getPoints(), "Awaiting Room"));
+                    String pref = (g.getPreferredRoomType() == null) ? "Any" : g.getPreferredRoomType();
+                    sb.append(String.format("%-4d | %-10s | %-16s | %-10s | %2d nts | %-10d | %-8s | %-15s\n",
+                            (i + 1), g.getConfirmationNumber(), g.getName(), m.getTierType(), g.getStayDays(), m.getPoints(), pref, "Awaiting Room"));
                 }
             }
         }
 
-        sb.append("-----------------------------------------------------------------------------------------\n");
+        sb.append("---------------------------------------------------------------------------------------------------------\n");
         sb.append(String.format("Total Pending High-Tier Allocations: %d\n", priorityQueue.getSize()));
-        sb.append("=========================================================================================\n");
+        sb.append("=========================================================================================================\n");
 
         return sb.toString();
     }

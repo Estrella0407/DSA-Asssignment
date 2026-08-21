@@ -74,8 +74,70 @@ public class FrontDeskServiceControl {
         }
         return room.isAvailable();
     }
-    
+
     public DoublyLinkedList<Guest> getGuestList(){
         return guestList;
+    }
+
+    public static double getRoomRate(String roomType) {
+        String type = Room.normalizeRoomType(roomType);
+        switch (type.toUpperCase()) {
+            case "DOUBLE":
+                return 220.00;
+            case "DELUXE":
+                return 350.00;
+            case "SUITE":
+                return 500.00;
+            case "SINGLE":
+            default:
+                return 150.00;
+        }
+    }
+
+    public static class BillingBreakdown {
+        public double nightlyRate;
+        public int stayDays;
+        public double baseCharge;
+        public double pointDiscount;
+        public double subtotal;
+        public double tax;
+        public double total;
+
+        public BillingBreakdown(double nightlyRate, int stayDays, double baseCharge, double pointDiscount, double subtotal, double tax, double total) {
+            this.nightlyRate = nightlyRate;
+            this.stayDays = stayDays;
+            this.baseCharge = baseCharge;
+            this.pointDiscount = pointDiscount;
+            this.subtotal = subtotal;
+            this.tax = tax;
+            this.total = total;
+        }
+    }
+
+    public BillingBreakdown calculateBilling(String confirmationNumber) {
+        Guest guest = findGuest(confirmationNumber);
+        if (guest == null) {
+            return null;
+        }
+
+        String roomType = (guest.getAssignedRoom() != null)
+                ? guest.getAssignedRoom().getRoomType()
+                : (guest.getPreferredRoomType() != null ? guest.getPreferredRoomType() : Room.TYPE_SINGLE);
+
+        double rate = getRoomRate(roomType);
+        int days = Math.max(1, guest.getStayDays());
+        double base = rate * days;
+        double discount = 0.0;
+
+        if (guest.isPointsRedeemed()) {
+            // 2 days free stay credit
+            discount = rate * Math.min(2, days);
+        }
+
+        double subtotal = Math.max(0.0, base - discount);
+        double tax = subtotal * 0.06;
+        double total = subtotal + tax;
+
+        return new BillingBreakdown(rate, days, base, discount, subtotal, tax, total);
     }
 }

@@ -12,6 +12,7 @@ package control;
 import adt.DoublyLinkedList;
 import adt.DoublyLinkedListInterface;
 import entity.Guest;
+import entity.Member;
 import entity.Room;
 
 public class WalkInRegistrationControl {
@@ -49,11 +50,33 @@ public class WalkInRegistrationControl {
     Throws IllegalArgumentException if validation fails.
     */
     public Guest registerWalkIn(String name, String billingDetails) {
+        return registerWalkIn(name, billingDetails, null, 1);
+    }
+
+    public Guest registerWalkIn(String name, String billingDetails, String preferredRoomType) {
+        return registerWalkIn(name, billingDetails, preferredRoomType, 1);
+    }
+
+    public Guest registerWalkIn(String name, String billingDetails, String preferredRoomType, int stayDays) {
+        return registerWalkIn(name, billingDetails, preferredRoomType, stayDays, null, false);
+    }
+
+    public Guest registerWalkIn(String name, String billingDetails, String preferredRoomType, int stayDays, Member memberProfile, boolean redeemPoints) {
         String cleanName = requireNonBlank(name, "Guest name");
         String cleanBilling = requireNonBlank(billingDetails, "Billing details");
 
         String confirmationNumber = PREFIX_WALKIN + (confirmationSeed++);
-        Guest guest = new Guest(confirmationNumber, cleanName, false, TYPE_WALKIN, null, cleanBilling, null);
+        Guest guest = new Guest(confirmationNumber, cleanName, false, TYPE_WALKIN, null, cleanBilling, memberProfile, stayDays);
+        guest.setPreferredRoomType(preferredRoomType == null ? null : Room.normalizeRoomType(preferredRoomType));
+
+        // Evaluate graduated long-stay milestone promotions (>14d Silver, >30d Gold, etc.)
+        guest.applyLongStayPromotion();
+
+        // If requested and eligible, redeem points for 2-day free stay
+        if (redeemPoints && guest.getMemberProfile() != null) {
+            guest.redeemPointsForStay(guest.getPreferredRoomType());
+        }
+
         guestQueue.insertLast(guest);
         guestRecords.insertLast(guest);
         return guest;
@@ -68,6 +91,18 @@ public class WalkInRegistrationControl {
     Throws IllegalArgumentException if validation fails.
     */
     public Guest registerBooking(String confirmationNumber, String name, String billingDetails) {
+        return registerBooking(confirmationNumber, name, billingDetails, null, 1);
+    }
+
+    public Guest registerBooking(String confirmationNumber, String name, String billingDetails, String preferredRoomType) {
+        return registerBooking(confirmationNumber, name, billingDetails, preferredRoomType, 1);
+    }
+
+    public Guest registerBooking(String confirmationNumber, String name, String billingDetails, String preferredRoomType, int stayDays) {
+        return registerBooking(confirmationNumber, name, billingDetails, preferredRoomType, stayDays, null, false);
+    }
+
+    public Guest registerBooking(String confirmationNumber, String name, String billingDetails, String preferredRoomType, int stayDays, Member memberProfile, boolean redeemPoints) {
         String cleanName = requireNonBlank(name, "Guest name");
         String cleanBilling = requireNonBlank(billingDetails, "Billing details");
         String rawConf = requireNonBlank(confirmationNumber, "Confirmation number");
@@ -81,7 +116,17 @@ public class WalkInRegistrationControl {
                     "Confirmation number \"" + normalizedConf + "\" is already registered.");
         }
 
-        Guest guest = new Guest(normalizedConf, cleanName, false, TYPE_BOOKED, null, cleanBilling, null);
+        Guest guest = new Guest(normalizedConf, cleanName, false, TYPE_BOOKED, null, cleanBilling, memberProfile, stayDays);
+        guest.setPreferredRoomType(preferredRoomType == null ? null : Room.normalizeRoomType(preferredRoomType));
+
+        // Evaluate graduated long-stay milestone promotions
+        guest.applyLongStayPromotion();
+
+        // If requested and eligible, redeem points for 2-day free stay
+        if (redeemPoints && guest.getMemberProfile() != null) {
+            guest.redeemPointsForStay(guest.getPreferredRoomType());
+        }
+
         guestQueue.insertLast(guest);
         guestRecords.insertLast(guest);
         return guest;
@@ -107,30 +152,37 @@ public class WalkInRegistrationControl {
 
     /*
     Queue processing:
-    Process the next guest in line: dequeue them, search for the first available, ready-for-check-in room, assign it, and check them in. 
-    Returns null if the queue is empty or no room is available.
+    Process the next guest in line: dequeue them, search for the first available, ready-for-check-in room matching preferred room type, assign it, and check them in. 
+    Returns null if the queue is empty or no matching clean room is available.
     */
     public Guest processNextGuest() {
         if (guestQueue.isEmpty()) {
             return null;
         }
-        Room room = findFirstAvailableCleanRoom();
+        Guest guest = guestQueue.retrieveFirst();
+        Room room = findFirstAvailableCleanRoom(guest.getPreferredRoomType());
         if (room == null) {
-            return null; // leave the guest at the front of the queue
+            return null; // leave the guest at the front of the queue until their desired room is ready
         }
-        Guest guest = guestQueue.removeFirst();
+        guestQueue.removeFirst();
         room.setAvailability(false);
         guest.assignRoom(room);
         guest.checkIn();
         return guest;
     }
 
-    // Linear search for the first available, ready-for-check-in room.
-    private Room findFirstAvailableCleanRoom() {
+    /**
+     * Linear search for the first available, ready-for-check-in room.
+     * If preferredType is specified, only a room matching that exact type is returned.
+     * If preferredType is null ("Any"), the first available ready room of any type is returned.
+     */
+    private Room findFirstAvailableCleanRoom(String preferredType) {
         for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
             Room r = roomList.getEntry(i);
             if (r != null && r.isRoomAvailable() && r.getCleaningStatus().equalsIgnoreCase(STATUS_READY)) {
-                return r;
+                if (preferredType == null || r.getRoomType().equalsIgnoreCase(preferredType)) {
+                    return r;
+                }
             }
         }
         return null;
@@ -208,23 +260,24 @@ public class WalkInRegistrationControl {
         }
 
         // Step 3: print structured report.
-        System.out.println("\n=====================================================================");
-        System.out.println("            GUEST REGISTRATION & CHECK-IN STATUS REPORT");
+        System.out.println("\n=========================================================================================");
+        System.out.println("                     GUEST REGISTRATION & CHECK-IN STATUS REPORT");
         System.out.println(" Filter -> Type: " + (typeFilter == null ? "ALL" : typeFilter)
                 + " | Status: " + (statusFilter == null ? "ALL" : statusFilter));
-        System.out.println("=====================================================================");
-        System.out.printf("%-10s %-18s %-10s %-12s %-8s%n",
-                "Conf. No", "Name", "Type", "Status", "Room");
-        System.out.println("---------------------------------------------------------------------");
+        System.out.println("=========================================================================================");
+        System.out.printf("%-10s %-16s %-9s %-7s %-12s %-12s %-10s%n",
+                "Conf. No", "Name", "Type", "Stay", "Tier (Pts)", "Status", "Room");
+        System.out.println("-----------------------------------------------------------------------------------------");
         for (int i = 0; i < count; i++) {
             Guest g = filtered[i];
-            String room = (g.getAssignedRoom() == null) ? "-" : g.getAssignedRoom().getRoomNumber();
-            System.out.printf("%-10s %-18s %-10s %-12s %-8s%n",
-                    g.getConfirmationNumber(), g.getName(), g.getType(), g.getStatus(), room);
+            String room = (g.getAssignedRoom() == null) ? "-" : g.getAssignedRoom().getRoomNumber() + " (" + g.getAssignedRoom().getRoomType() + ")";
+            String tierStr = (g.getMemberProfile() == null) ? "Non-Member" : g.getMemberProfile().getTierType() + " (" + g.getMemberProfile().getPoints() + ")";
+            System.out.printf("%-10s %-16s %-9s %2d nts %-12s %-12s %-10s%n",
+                    g.getConfirmationNumber(), g.getName(), g.getType(), g.getStayDays(), tierStr, g.getStatus(), room);
         }
-        System.out.println("---------------------------------------------------------------------");
+        System.out.println("-----------------------------------------------------------------------------------------");
         System.out.println(" Total matching guests: " + count);
-        System.out.println("=====================================================================\n");
+        System.out.println("=========================================================================================\n");
     }
 
     // Report 2: Active Waitlist & Queue Summary Report
@@ -260,28 +313,30 @@ public class WalkInRegistrationControl {
             filtered[j + 1] = key;
         }
 
-        System.out.println("\n=====================================================================");
-        System.out.println("                 ACTIVE QUEUE WAITLIST AUDIT REPORT");
+        System.out.println("\n=========================================================================================");
+        System.out.println("                         ACTIVE QUEUE WAITLIST AUDIT REPORT");
         System.out.println(" Filter -> Type: " + (typeFilter == null ? "ALL" : typeFilter));
-        System.out.println("=====================================================================");
-        System.out.printf("%-5s %-10s %-20s %-12s %-15s\n",
-                "No", "Conf No", "Guest Name", "Type", "Billing");
-        System.out.println("---------------------------------------------------------------------");
+        System.out.println("=========================================================================================");
+        System.out.printf("%-4s %-10s %-16s %-9s %-6s %-10s %-15s %-20s\n",
+                "No", "Conf No", "Guest Name", "Type", "Stay", "Pref Type", "Member Tier", "Billing");
+        System.out.println("-----------------------------------------------------------------------------------------");
 
         if (count == 0) {
-            System.out.println("          No waiting guests match the selected criteria.");
+            System.out.println("                  No waiting guests match the selected criteria.");
         } else {
             for (int i = 0; i < count; i++) {
                 Guest g = filtered[i];
-                System.out.printf("%-5d %-10s %-20s %-12s %-15s\n",
-                        (i + 1), g.getConfirmationNumber(), g.getName(), g.getType(), g.getBillingDetails());
+                String pref = (g.getPreferredRoomType() == null) ? "Any" : g.getPreferredRoomType();
+                String tier = (g.getMemberProfile() == null) ? "-" : g.getMemberProfile().getTierType() + " (" + g.getMemberProfile().getPoints() + ")";
+                System.out.printf("%-4d %-10s %-16s %-9s %2d nts %-10s %-15s %-20s\n",
+                        (i + 1), g.getConfirmationNumber(), g.getName(), g.getType(), g.getStayDays(), pref, tier, g.getBillingDetails());
             }
         }
 
-        System.out.println("---------------------------------------------------------------------");
+        System.out.println("-----------------------------------------------------------------------------------------");
         System.out.println(" Total Matching Guests In Queue : " + count);
         System.out.println(" Overall Queue Stats -> Total: " + totalQueue + " | Walk-in: " + walkInCount + " | Booked: " + bookedCount);
-        System.out.println("=====================================================================\n");
+        System.out.println("=========================================================================================\n");
     }
 
     public void printQueueSummaryReport() {

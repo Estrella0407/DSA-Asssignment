@@ -58,4 +58,15 @@ public interface PriorityQueueInterface<T extends Comparable<T>> {
      * Removes all entries from the priority queue.
      */
     void clear();
+
+    /**
+     * Removes and returns the entry at the specified index, shifting later
+     * entries left to preserve priority order. Used when a lower-priority
+     * entry needs to be serviced ahead of a higher-priority entry that is
+     * currently blocked (e.g. its preferred room type isn't ready yet).
+     *
+     * @param index The 0-based index in the queue.
+     * @return The entry at index, or null if index is out of bounds.
+     */
+    T dequeueAt(int index);
 }
