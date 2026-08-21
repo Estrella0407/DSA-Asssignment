@@ -49,15 +49,15 @@ public class MainMenuUI {
     public void displayMainMenu() {
         int choice;
         do {
-            System.out.println("\n==================================================");
-            System.out.println("            TARUMT RESORTS SYSTEM                 ");
-            System.out.println("==================================================");
+            System.out.println("\n===============================================================");
+            System.out.println("                    TARUMT RESORTS SYSTEM                 ");
+            System.out.println("===============================================================");
             System.out.println("1. Walk-In Registrations & Standard Booking (Linear ADT)");
             System.out.println("2. VIP & Loyalty Tier Priority Room Allocation (Non-Linear ADT)");
             System.out.println("3. Housekeeping and Task Log (Linear ADT)");
             System.out.println("4. Front-Desk Service (Non-Linear ADT & Searching)");
             System.out.println("0. Exit");
-            System.out.println("--------------------------------------------------");
+            System.out.println("---------------------------------------------------------------");
             System.out.print("Enter choice: ");
 
             choice = getIntInput();
