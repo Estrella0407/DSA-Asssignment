@@ -39,6 +39,49 @@ public class HousekeepingControl {
         return taskLog;
     }
 
+    /* Boundary-safe views: the UI receives Control DTOs instead of Entity/ADT objects. */
+    public RoomView getRoomView(String roomNumber) {
+        Room room = findRoomByNumber(roomNumber);
+        return room == null ? null : new RoomView(room, getNextExpectedStatus(room));
+    }
+
+    public RoomView[] getRoomViews() {
+        RoomView[] views = new RoomView[roomList.getNumberOfEntries()];
+        for (int i = 0; i < views.length; i++) {
+            Room room = roomList.getEntry(i);
+            views[i] = new RoomView(room, getNextExpectedStatus(room));
+        }
+        return views;
+    }
+
+    public TaskView[] getTaskViews() {
+        TaskView[] views = new TaskView[taskLog.getNumberOfEntries()];
+        for (int i = 0; i < views.length; i++) {
+            views[i] = new TaskView(taskLog.getEntry(i));
+        }
+        return views;
+    }
+
+    public TaskView updateCleaningStatusForUI(String roomNumber, String newStatus,
+            String staffName, String remarks) {
+        return new TaskView(updateCleaningStatus(roomNumber, newStatus, staffName, remarks));
+    }
+
+    public TaskView correctCleaningStatusForUI(String roomNumber, String newStatus,
+            String staffName, String remarks) {
+        return new TaskView(correctCleaningStatus(roomNumber, newStatus, staffName, remarks));
+    }
+
+    public TaskView rollbackLatestUpdateForUI(String roomNumber) {
+        HousekeepingTask task = (roomNumber == null || roomNumber.trim().isEmpty())
+                ? rollbackLatestUpdate() : rollbackLatestUpdateForRoom(roomNumber);
+        return task == null ? null : new TaskView(task);
+    }
+
+    public TaskView handleLateCheckoutForUI(String roomNumber, String staffName, String remarks) {
+        return new TaskView(handleLateCheckout(roomNumber, staffName, remarks));
+    }
+
     /**
      * Linear search for a room by its room number.
      */
@@ -218,6 +261,23 @@ public class HousekeepingControl {
         }
 
         String status = normalizeStatus(room.getCleaningStatus());
+        if (status.equalsIgnoreCase(STATUS_DIRTY)) {
+            return STATUS_CLEANING;
+        }
+        if (status.equalsIgnoreCase(STATUS_CLEANING)) {
+            return STATUS_INSPECTED;
+        }
+        if (status.equalsIgnoreCase(STATUS_INSPECTED)) {
+            return STATUS_READY;
+        }
+        return null;
+    }
+
+    public String getNextExpectedStatus(String cleaningStatus) {
+        if (cleaningStatus == null) {
+            return null;
+        }
+        String status = normalizeStatus(cleaningStatus);
         if (status.equalsIgnoreCase(STATUS_DIRTY)) {
             return STATUS_CLEANING;
         }
@@ -411,6 +471,13 @@ public class HousekeepingControl {
         public String getStatusFilter() { return statusFilter; }
         public Boolean getAvailabilityFilter() { return availabilityFilter; }
         public Room[] getRooms() { return rooms; }
+        public RoomView[] getRoomViews() {
+            RoomView[] views = new RoomView[rooms.length];
+            for (int i = 0; i < rooms.length; i++) {
+                views[i] = new RoomView(rooms[i], null);
+            }
+            return views;
+        }
         public int getMatchCount() { return rooms.length; }
         public int getTotalRooms() { return totalRooms; }
         public int getDirtyCount() { return dirtyCount; }
@@ -456,12 +523,78 @@ public class HousekeepingControl {
         public String getRoomFilter() { return roomFilter; }
         public String getNewStatusFilter() { return newStatusFilter; }
         public HousekeepingTask[] getTasks() { return tasks; }
+        public TaskView[] getTaskViews() {
+            TaskView[] views = new TaskView[tasks.length];
+            for (int i = 0; i < tasks.length; i++) {
+                views[i] = new TaskView(tasks[i]);
+            }
+            return views;
+        }
         public int getMatchCount() { return tasks.length; }
         public int getTotalTasks() { return totalTasks; }
         public int getCompletedToReady() { return completedToReady; }
         public int getResetToDirty() { return resetToDirty; }
         public String getMostActiveStaff() { return mostActiveStaff; }
         public int getMostActiveStaffCount() { return mostActiveStaffCount; }
+    }
+
+    public static class RoomView {
+        private final String roomNumber;
+        private final String roomType;
+        private final String cleaningStatus;
+        private final boolean available;
+        private final String nextStatus;
+
+        private RoomView(Room room, String nextStatus) {
+            this.roomNumber = room == null ? "-" : room.getRoomNumber();
+            this.roomType = room == null ? "-" : room.getRoomType();
+            this.cleaningStatus = room == null ? "-" : room.getCleaningStatus();
+            this.available = room != null && room.isAvailable();
+            this.nextStatus = nextStatus;
+        }
+
+        public String getRoomNumber() { return roomNumber; }
+        public String getRoomType() { return roomType; }
+        public String getCleaningStatus() { return cleaningStatus; }
+        public boolean isAvailable() { return available; }
+        public String getNextStatus() { return nextStatus; }
+    }
+
+    public static class TaskView {
+        private final String taskId;
+        private final String roomNumber;
+        private final String staffName;
+        private final String previousStatus;
+        private final String newStatus;
+        private final LocalDateTime taskDateTime;
+        private final String remarks;
+
+        private TaskView(HousekeepingTask task) {
+            this.taskId = task == null ? "-" : task.getTaskId();
+            this.roomNumber = task == null || task.getRoom() == null
+                    ? "-" : task.getRoom().getRoomNumber();
+            this.staffName = task == null ? "-" : task.getStaffName();
+            this.previousStatus = task == null ? "-" : task.getPreviousStatus();
+            this.newStatus = task == null ? "-" : task.getNewStatus();
+            this.taskDateTime = task == null ? null : task.getTaskDateTime();
+            this.remarks = task == null ? "" : task.getRemarks();
+        }
+
+        public String getTaskId() { return taskId; }
+        public String getRoomNumber() { return roomNumber; }
+        public String getStaffName() { return staffName; }
+        public String getPreviousStatus() { return previousStatus; }
+        public String getNewStatus() { return newStatus; }
+        public LocalDateTime getTaskDateTime() { return taskDateTime; }
+        public String getRemarks() { return remarks; }
+
+        @Override
+        public String toString() {
+            String time = taskDateTime == null ? "-"
+                    : taskDateTime.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+            return String.format("%-7s | Room %-4s | %-16s | %-22s -> %-22s | %s | %s",
+                    taskId, roomNumber, staffName, previousStatus, newStatus, time, remarks);
+        }
     }
 
     private HousekeepingTask recordStatusChange(Room room, String staff,
