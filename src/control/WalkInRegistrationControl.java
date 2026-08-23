@@ -35,12 +35,19 @@ public class WalkInRegistrationControl {
     // Room inventory (would normally be populated by the Room Management module).
     private DoublyLinkedListInterface<Room> roomList;
 
+    private final GuestDirectory guestDirectory; // nullable - shared "database"
+
     private int confirmationSeed = 1000;
 
     public WalkInRegistrationControl(DoublyLinkedListInterface<Room> roomList) {
+        this(roomList, null);
+    }
+
+    public WalkInRegistrationControl(DoublyLinkedListInterface<Room> roomList, GuestDirectory guestDirectory) {
         this.guestQueue = new DoublyLinkedList<>();
         this.guestRecords = new DoublyLinkedList<>();
         this.roomList = roomList;
+        this.guestDirectory = guestDirectory;
     }
 
     /*
@@ -69,7 +76,7 @@ public class WalkInRegistrationControl {
         Guest guest = new Guest(confirmationNumber, cleanName, false, TYPE_WALKIN, null, cleanBilling, memberProfile, stayDays);
         guest.setPreferredRoomType(preferredRoomType == null ? null : Room.normalizeRoomType(preferredRoomType));
 
-        // Evaluate graduated long-stay milestone promotions (>14d Silver, >30d Gold, etc.)
+        // Evaluate graduated long-stay milestone promotions (>=14d Silver, >30d Gold, etc.)
         guest.applyLongStayPromotion();
 
         // If requested and eligible, redeem points for 2-day free stay
@@ -79,6 +86,11 @@ public class WalkInRegistrationControl {
 
         guestQueue.insertLast(guest);
         guestRecords.insertLast(guest);
+
+        if (guestDirectory != null) {
+            guestDirectory.add(guest);
+        }
+
         return guest;
     }
 
@@ -129,6 +141,11 @@ public class WalkInRegistrationControl {
 
         guestQueue.insertLast(guest);
         guestRecords.insertLast(guest);
+
+        if (guestDirectory != null) {
+            guestDirectory.add(guest);
+        }
+
         return guest;
     }
 
@@ -146,6 +163,9 @@ public class WalkInRegistrationControl {
             if (guestRecords.getEntry(i).getConfirmationNumber().equalsIgnoreCase(confirmationNumber)) {
                 return true;
             }
+        }
+        if (guestDirectory != null && guestDirectory.contains(confirmationNumber)) {
+            return true;
         }
         return false;
     }

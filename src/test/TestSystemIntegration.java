@@ -107,36 +107,36 @@ public class TestSystemIntegration {
         // Test 3: Graduated Long-Stay Milestone Promotions
         // =====================================================================
         System.out.println("\n[Test 3] Graduated Long-Stay Loyalty Milestone Promotions:");
-        // 1. > 14 days (15d) -> Silver (200 pts)
-        Guest gSilver = walkInControl.registerWalkIn("Silver Stayer", "Card", Room.TYPE_DELUXE, 15);
+        // 1. >= 14 days (14d) -> Silver (200 pts)
+        Guest gSilver = walkInControl.registerWalkIn("Silver Stayer", "Card", Room.TYPE_DELUXE, 14);
         assert gSilver.getMemberProfile() != null                              : "FAIL: Should have member profile!";
-        assert "SILVER".equalsIgnoreCase(gSilver.getMemberProfile().getTierType()) : "FAIL: 15 days must be Silver!";
+        assert "SILVER".equalsIgnoreCase(gSilver.getMemberProfile().getTierType()) : "FAIL: 14 days must be Silver!";
         assert gSilver.getMemberProfile().getPoints() == 200                   : "FAIL: Silver must have 200 points!";
-        System.out.println("  PASS: 15-day stay auto-enrolled as SILVER with 200 bonus points.");
+        System.out.println("  PASS: 14-day stay auto-enrolled as SILVER with 200 bonus points.");
 
-        // 2. > 30 days (35d) -> Gold (500 pts)
-        Guest gGold = walkInControl.registerBooking("BK100", "Gold Stayer", "Paid", Room.TYPE_DOUBLE, 35);
-        assert "GOLD".equalsIgnoreCase(gGold.getMemberProfile().getTierType()) : "FAIL: 35 days must be Gold!";
+        // 2. >= 30 days (30d) -> Gold (500 pts)
+        Guest gGold = walkInControl.registerBooking("BK100", "Gold Stayer", "Paid", Room.TYPE_DOUBLE, 30);
+        assert "GOLD".equalsIgnoreCase(gGold.getMemberProfile().getTierType()) : "FAIL: 30 days must be Gold!";
         assert gGold.getMemberProfile().getPoints() == 500                    : "FAIL: Gold must have 500 points!";
-        System.out.println("  PASS: 35-day stay auto-enrolled as GOLD with 500 bonus points.");
+        System.out.println("  PASS: 30-day stay auto-enrolled as GOLD with 500 bonus points.");
 
-        // 3. > 60 days (70d) -> Elite (1000 pts)
-        Guest gElite = walkInControl.registerWalkIn("Elite Stayer", "Card", Room.TYPE_DELUXE, 70);
-        assert "ELITE".equalsIgnoreCase(gElite.getMemberProfile().getTierType()) : "FAIL: 70 days must be Elite!";
+        // 3. >= 60 days (60d) -> Elite (1000 pts)
+        Guest gElite = walkInControl.registerWalkIn("Elite Stayer", "Card", Room.TYPE_DELUXE, 60);
+        assert "ELITE".equalsIgnoreCase(gElite.getMemberProfile().getTierType()) : "FAIL: 60 days must be Elite!";
         assert gElite.getMemberProfile().getPoints() == 1000                    : "FAIL: Elite must have 1000 points!";
-        System.out.println("  PASS: 70-day stay auto-enrolled as ELITE with 1000 bonus points.");
+        System.out.println("  PASS: 60-day stay auto-enrolled as ELITE with 1000 bonus points.");
 
-        // 4. > 90 days (100d) -> Platinum (1800 pts)
-        Guest gPlat = walkInControl.registerWalkIn("Plat Stayer", "Card", Room.TYPE_SUITE, 100);
-        assert "PLATINUM".equalsIgnoreCase(gPlat.getMemberProfile().getTierType()) : "FAIL: 100 days must be Platinum!";
+        // 4. >= 90 days (90d) -> Platinum (1800 pts)
+        Guest gPlat = walkInControl.registerWalkIn("Plat Stayer", "Card", Room.TYPE_SUITE, 90);
+        assert "PLATINUM".equalsIgnoreCase(gPlat.getMemberProfile().getTierType()) : "FAIL: 90 days must be Platinum!";
         assert gPlat.getMemberProfile().getPoints() == 1800                     : "FAIL: Platinum must have 1800 points!";
-        System.out.println("  PASS: 100-day stay auto-enrolled as PLATINUM with 1800 bonus points.");
+        System.out.println("  PASS: 90-day stay auto-enrolled as PLATINUM with 1800 bonus points.");
 
-        // 5. > 180 days (200d) -> Diamond (3000 pts)
-        Guest gDiamond = walkInControl.registerWalkIn("Diamond Stayer", "Card", Room.TYPE_SUITE, 200);
-        assert "DIAMOND".equalsIgnoreCase(gDiamond.getMemberProfile().getTierType()) : "FAIL: 200 days must be Diamond!";
+        // 5. >= 180 days (180d) -> Diamond (3000 pts)
+        Guest gDiamond = walkInControl.registerWalkIn("Diamond Stayer", "Card", Room.TYPE_SUITE, 180);
+        assert "DIAMOND".equalsIgnoreCase(gDiamond.getMemberProfile().getTierType()) : "FAIL: 180 days must be Diamond!";
         assert gDiamond.getMemberProfile().getPoints() == 3000                     : "FAIL: Diamond must have 3000 points!";
-        System.out.println("  PASS: 200-day stay auto-enrolled as DIAMOND with 3000 bonus points.");
+        System.out.println("  PASS: 180-day stay auto-enrolled as DIAMOND with 3000 bonus points.");
 
         // =====================================================================
         // Test 4: Room-Type Specific 2-Day Free Stay Point Redemption

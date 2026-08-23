@@ -134,7 +134,7 @@ public class PriorityAllocationUI {
             redeemPoints = (redeemChoice == 1);
         }
 
-        System.out.print("Enter Billing Details (e.g., Credit Card / Corporate): ");
+        System.out.print("Enter Billing Details (e.g., Credit Card / Corporate Billing / Direct Transfer): ");
         String billing = scanner.nextLine().trim();
 
         try {
@@ -147,8 +147,8 @@ public class PriorityAllocationUI {
                 System.out.println("Current VIP Waitlist Size: " + control.getQueueSize());
                 System.out.println("==================================================");
 
-                if (stayDays > 14) {
-                    System.out.println("\n" + registered.applyLongStayPromotion());
+                if (registered.getLastPromotionMessage() != null) {
+                    System.out.println("\n" + registered.getLastPromotionMessage());
                 }
             } else {
                 System.out.println(">> Failed to add VIP guest.");
@@ -222,10 +222,10 @@ public class PriorityAllocationUI {
         System.out.println("   Preferred Type : " + displayPref);
         System.out.println("   Stay Duration  : " + nextInLine.getStayDays() + " night(s)");
 
-        // 1. SMART FIX: Automatically fetch rooms matching the guest's preference!
+        // Automatically fetch rooms matching the guest's preference!
         DoublyLinkedListInterface<Room> availableRooms = control.getAvailableCleanRoomsByType(pref);
 
-        // 2. Fallback: If their preferred type isn't available, ask staff if they want to override
+        // If their preferred type isn't available, ask staff if they want to override
         if (availableRooms.isEmpty()) {
             System.out.println("\n>> No available 'Ready for Check-In' rooms found for preferred type: " + displayPref);
             System.out.println("   Would you like to search for a different room type? (1: Yes | 2: No, keep in waitlist)");

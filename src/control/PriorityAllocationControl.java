@@ -33,21 +33,27 @@ public class PriorityAllocationControl {
     private int goldCount;
     private int silverCount;
 
+    private final GuestDirectory guestDirectory;
+
     public PriorityAllocationControl() {
-        this(new DoublyLinkedList<>());
+        this(new DoublyLinkedList<>(), null);
     }
 
     public PriorityAllocationControl(DoublyLinkedListInterface<Room> roomList) {
+        this(roomList, null);
+    }
+
+    public PriorityAllocationControl(DoublyLinkedListInterface<Room> roomList, GuestDirectory guestDirectory) {
         this.priorityQueue = new ArrayPriorityQueue<>();
         this.allocatedVipRecords = new DoublyLinkedList<>();
         this.roomList = roomList;
+        this.guestDirectory = guestDirectory;
         this.totalPriorityProcessed = 0;
         this.diamondCount = 0;
         this.platinumCount = 0;
         this.eliteCount = 0;
         this.goldCount = 0;
         this.silverCount = 0;
-        seedSampleData();
     }
 
     public void setRoomList(DoublyLinkedListInterface<Room> roomList) {
@@ -56,26 +62,6 @@ public class PriorityAllocationControl {
 
     public DoublyLinkedListInterface<Room> getRoomList() {
         return roomList;
-    }
-
-    private void seedSampleData() {
-        // Pre-populate with sample VIP guests to demonstrate auto-reordering & room types
-        Guest g1 = new Guest("VIP-1001", "Alice Tan", false, "Booked", null, "Credit Card", new Member("M101", "GOLD", 500), 3);
-        g1.setPreferredRoomType(Room.TYPE_DOUBLE);
-
-        Guest g2 = new Guest("VIP-1002", "Dato Steven", false, "Booked", null, "Corporate Billing", new Member("M102", "DIAMOND", 2500), 5);
-        g2.setPreferredRoomType(Room.TYPE_SUITE);
-
-        Guest g3 = new Guest("VIP-1003", "Bob Lee", false, "Booked", null, "Credit Card", new Member("M103", "PLATINUM", 1200), 2);
-        g3.setPreferredRoomType(Room.TYPE_DELUXE);
-
-        Guest g4 = new Guest("VIP-1004", "Dr. Clara", false, "Booked", null, "Direct Transfer", new Member("M104", "ELITE", 1800), 4);
-        g4.setPreferredRoomType(Room.TYPE_SINGLE);
-
-        priorityQueue.enqueue(g1);
-        priorityQueue.enqueue(g2);
-        priorityQueue.enqueue(g3);
-        priorityQueue.enqueue(g4);
     }
 
     /**
@@ -144,6 +130,9 @@ public class PriorityAllocationControl {
         }
 
         if (priorityQueue.enqueue(guest)) {
+            if (guestDirectory != null) {
+                guestDirectory.add(guest);
+            }
             return guest;
         }
         return null;
@@ -161,6 +150,9 @@ public class PriorityAllocationControl {
             if (g != null && g.getConfirmationNumber().equalsIgnoreCase(confirmationNumber)) {
                 return true;
             }
+        }
+        if (guestDirectory != null && guestDirectory.contains(confirmationNumber)) {
+            return true;
         }
         return false;
     }
@@ -319,22 +311,6 @@ public class PriorityAllocationControl {
     }
 
     /**
-     * Linear search for the first available, ready-for-check-in room.
-     */
-    private Room findFirstAvailableCleanRoom() {
-        if (roomList == null) {
-            return null;
-        }
-        for (int i = 0; i < roomList.getNumberOfEntries(); i++) {
-            Room r = roomList.getEntry(i);
-            if (r != null && r.isRoomAvailable() && STATUS_READY.equalsIgnoreCase(r.getCleaningStatus())) {
-                return r;
-            }
-        }
-        return null;
-    }
-
-    /**
      * Linear search for room by number.
      */
     public Room findRoomByNumber(String roomNumber) {
@@ -389,13 +365,13 @@ public class PriorityAllocationControl {
     // =========================================================================
     public String generateTierDistributionReport(String tierFilter, Integer minPointsFilter) {
         StringBuilder sb = new StringBuilder();
-        sb.append("\n=========================================================================================\n");
-        sb.append("            REPORT 1: VIP & LOYALTY TIER ALLOCATION & DEMAND PERFORMANCE REPORT          \n");
-        sb.append("=========================================================================================\n");
+        sb.append("\n=======================================================================================================\n");
+        sb.append("                    REPORT 1: VIP & LOYALTY TIER ALLOCATION & DEMAND PERFORMANCE REPORT                  \n");
+        sb.append("=========================================================================================================\n");
         sb.append(String.format("Filters -> Tier: %-10s | Min Points: %s\n",
                 (tierFilter == null ? "ALL" : tierFilter),
                 (minPointsFilter == null ? "0" : minPointsFilter)));
-        sb.append("-----------------------------------------------------------------------------------------\n");
+        sb.append("---------------------------------------------------------------------------------------------------------\n");
 
         // Step 1: Filter allocated records into temporary array
         int totalAllocated = allocatedVipRecords.getNumberOfEntries();

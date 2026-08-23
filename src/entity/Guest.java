@@ -180,23 +180,23 @@ public class Guest implements Serializable, Comparable<Guest> {
     /**
      * Calculates the loyalty points required to redeem a 2-Day Free Stay
      * based on room type:
-     * - Single: 150 pts
-     * - Double: 250 pts
-     * - Deluxe: 400 pts
-     * - Suite:  600 pts
+     * - Single: 250 pts
+     * - Double: 400 pts
+     * - Deluxe: 600 pts
+     * - Suite:  850 pts
      */
     public static int getRedemptionCostForRoomType(String roomType) {
         String type = Room.normalizeRoomType(roomType);
         switch (type.toUpperCase()) {
             case "DOUBLE":
-                return 250;
-            case "DELUXE":
                 return 400;
-            case "SUITE":
+            case "DELUXE":
                 return 600;
+            case "SUITE":
+                return 850;
             case "SINGLE":
             default:
-                return 150;
+                return 250;
         }
     }
 
@@ -223,55 +223,55 @@ public class Guest implements Serializable, Comparable<Guest> {
 
     /**
      * Evaluates graduated long-stay loyalty milestone promotions:
-     * - > 180 days: DIAMOND Member (+ 3000 bonus points)
-     * - > 90 days:  PLATINUM Member (+ 1800 bonus points)
-     * - > 60 days:  ELITE Member    (+ 1000 bonus points)
-     * - > 30 days:  GOLD Member     (+ 500 bonus points)
-     * - > 14 days:  SILVER Member   (+ 200 bonus points)
+     * - >= 180 days: DIAMOND Member (+ 3000 bonus points)
+     * - >= 90 days:  PLATINUM Member (+ 1800 bonus points)
+     * - >= 60 days:  ELITE Member    (+ 1000 bonus points)
+     * - >= 30 days:  GOLD Member     (+ 500 bonus points)
+     * - >= 14 days:  SILVER Member   (+ 200 bonus points)
      * 
      * Returns a celebratory message if a milestone promotion occurred, or null if no threshold met.
      */
     public String applyLongStayPromotion() {
-        if (this.stayDays <= 14) {
+        if (this.stayDays < 15) {
             return null;
         }
 
         String targetTier;
         int bonusPoints;
 
-        if (this.stayDays > 180) {
+        if (this.stayDays >= 180) {
             targetTier = "DIAMOND";
-            bonusPoints = 3000;
-        } else if (this.stayDays > 90) {
-            targetTier = "PLATINUM";
-            bonusPoints = 1800;
-        } else if (this.stayDays > 60) {
-            targetTier = "ELITE";
             bonusPoints = 1000;
-        } else if (this.stayDays > 30) {
+        } else if (this.stayDays >= 90) {
+            targetTier = "PLATINUM";
+            bonusPoints = 600;
+        } else if (this.stayDays >= 60) {
+            targetTier = "ELITE";
+            bonusPoints = 400;
+        } else if (this.stayDays >= 30) {
             targetTier = "GOLD";
-            bonusPoints = 500;
+            bonusPoints = 200;
         } else {
             targetTier = "SILVER";
-            bonusPoints = 200;
+            bonusPoints = 100;
         }
 
         if (this.memberProfile == null) {
-            String autoMemberId = "M-AUTO-" + (this.confirmationNumber != null ? this.confirmationNumber.replace("-", "") : "100");
+            String autoMemberId = "M-" + (this.confirmationNumber != null ? this.confirmationNumber.replace("-", "") : "1000");
             this.memberProfile = new Member(autoMemberId, targetTier, bonusPoints);
             lastPromotionMessage = String.format(
-                    "🎉 Long-Stay Reward (%d days): Automatically enrolled as %s Member (%s) with %d bonus loyalty points!",
+                    ">> Long-Stay Reward (%d days): Automatically enrolled as %s Member (%s) with %d bonus loyalty points!",
                     this.stayDays, targetTier, autoMemberId, bonusPoints);
             return lastPromotionMessage;
         } else {
             boolean upgraded = this.memberProfile.upgradeTierIfHigher(targetTier, bonusPoints);
             if (upgraded) {
                 lastPromotionMessage = String.format(
-                        "🎉 Long-Stay Reward (%d days): Upgraded to %s Member with +%d bonus loyalty points! (Total Points: %d)",
+                        ">> Long-Stay Reward (%d days): Upgraded to %s Member with +%d bonus loyalty points! (Total Points: %d)",
                         this.stayDays, targetTier, bonusPoints, this.memberProfile.getPoints());
             } else {
                 lastPromotionMessage = String.format(
-                        "🎉 Long-Stay Reward (%d days): Retained %s tier and awarded +%d bonus loyalty points! (Total Points: %d)",
+                        ">> Long-Stay Reward (%d days): Retained %s tier and awarded +%d bonus loyalty points! (Total Points: %d)",
                         this.stayDays, this.memberProfile.getTierType(), bonusPoints, this.memberProfile.getPoints());
             }
             return lastPromotionMessage;

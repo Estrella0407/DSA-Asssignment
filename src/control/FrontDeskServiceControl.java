@@ -9,37 +9,34 @@
  */
 package control;
 
-import adt.DoublyLinkedList;
 import adt.Dictionary;
+import adt.DoublyLinkedList;
 import entity.Guest;
 import entity.Room;
 
 public class FrontDeskServiceControl {
-    private Dictionary<String, Guest> guestTable;
+    private GuestDirectory guestDirectory;
     private Dictionary<String, Room> roomTable;
-    private DoublyLinkedList<Guest> guestList;
     
-    public FrontDeskServiceControl(Dictionary<String, Guest> guestTable,Dictionary<String, Room> roomTable){
-        this.guestTable = guestTable;
+    public FrontDeskServiceControl(GuestDirectory guestDirectory, Dictionary<String, Room> roomTable) {
+        this.guestDirectory = guestDirectory;
         this.roomTable = roomTable;
-        this.guestList = new DoublyLinkedList<>();
     }
     
-    public void addGuest(Guest guest){
-        guestTable.add(guest.getConfirmationNumber(), guest);
-        guestList.insertLast(guest);
+    public void addGuest(Guest guest) {
+        guestDirectory.add(guest);
     }
     
     public void addRoom(Room room){
         roomTable.add(room.getRoomNumber(), room);
     }
     
-    public Guest findGuest(String confirmationNumber){
-        return guestTable.getValue(confirmationNumber);
+    public Guest findGuest(String confirmationNumber) {
+        return guestDirectory.find(confirmationNumber);
     }
     
-    public Object[] getGuests(){
-        return guestTable.getValues();
+    public Object[] getGuests() {
+        return guestDirectory.getAllGuests();
     }
     
     public String getBillingDetails(String confirmationNumber){
@@ -75,8 +72,8 @@ public class FrontDeskServiceControl {
         return room.isAvailable();
     }
 
-    public DoublyLinkedList<Guest> getGuestList(){
-        return guestList;
+    public DoublyLinkedList<Guest> getGuestList() {
+        return guestDirectory.getGuestList();
     }
 
     public static double getRoomRate(String roomType) {

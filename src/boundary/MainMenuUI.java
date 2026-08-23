@@ -13,11 +13,10 @@ import adt.DoublyLinkedList;
 import adt.DoublyLinkedListInterface;
 import adt.HashTable;
 import control.FrontDeskServiceControl;
+import control.GuestDirectory;
 import control.HousekeepingControl;
 import control.PriorityAllocationControl;
 import control.WalkInRegistrationControl;
-import entity.Guest;
-import entity.Member;
 import entity.Room;
 import java.util.Scanner;
 
@@ -25,7 +24,7 @@ public class MainMenuUI {
 
     private final Scanner scanner;
     private final DoublyLinkedListInterface<Room> roomList;
-    private final Dictionary<String, Guest> guestTable;
+    private final GuestDirectory guestDirectory;
     private final Dictionary<String, Room> roomTable;
     private final WalkInRegistrationControl walkInControl;
     private final PriorityAllocationControl priorityControl;
@@ -35,14 +34,13 @@ public class MainMenuUI {
     public MainMenuUI() {
         this.scanner = new Scanner(System.in);
         this.roomList = new DoublyLinkedList<>();
-        this.guestTable = new HashTable<>();
+        this.guestDirectory = new GuestDirectory();
         this.roomTable = new HashTable<>();
 
-        this.walkInControl = new WalkInRegistrationControl(roomList);
-        this.priorityControl = new PriorityAllocationControl(roomList);
+        this.walkInControl = new WalkInRegistrationControl(roomList, guestDirectory);
+        this.priorityControl = new PriorityAllocationControl(roomList, guestDirectory);
         this.housekeepingControl = new HousekeepingControl(roomList);
-        this.frontDeskControl = new FrontDeskServiceControl(guestTable, roomTable);
-        
+        this.frontDeskControl = new FrontDeskServiceControl(guestDirectory, roomTable);        
         seedRoomsAndGuests();
     }
 
@@ -130,30 +128,25 @@ public class MainMenuUI {
         roomTable.add(r201.getRoomNumber(), r201);
         roomTable.add(r202.getRoomNumber(), r202);
 
-        // Seed sample guests into Front-Desk Hash Table guest dictionary
-        Guest g1 = new Guest("VIP-1001", "Alice Tan", true, "Booked", r101, "Credit Card - Paid", new Member("M101", "GOLD", 500), 3);
-        g1.setPreferredRoomType(Room.TYPE_SINGLE);
+        // All seed data for the whole system lives here, and nowhere else -
+        // every guest below is created through the same real registration
+        // methods each module's UI would call, so seeding exercises the exact
+        // same code path as a live user action and lands in the shared
+        // GuestDirectory automatically.
 
-        Guest g2 = new Guest("VIP-1002", "Dato Steven", true, "Booked", r102, "Corporate Billing", new Member("M102", "DIAMOND", 2500), 7);
-        g2.setPreferredRoomType(Room.TYPE_DOUBLE);
+        // VIP guests
+        priorityControl.registerVIPGuest("VIP-2001", "Alice Tan", "M-2001", "GOLD", 500,
+                "Credit Card", Room.TYPE_DOUBLE, 3, false);
+        priorityControl.registerVIPGuest("VIP-2002", "Dato Steven", "M-2002", "DIAMOND", 2500,
+                "Corporate Billing", Room.TYPE_SUITE, 5, false);
+        priorityControl.registerVIPGuest("VIP-2003", "Bob Lee", "M-2003", "PLATINUM", 1200,
+                "Credit Card", Room.TYPE_DELUXE, 2, false);
+        priorityControl.registerVIPGuest("VIP-2004", "Dr. Clara", "M-2004", "ELITE", 1800,
+                "Direct Transfer", Room.TYPE_SINGLE, 4, true); // demonstrates 2-day redemption
 
-        Guest g3 = new Guest("SG-1001", "Bob Lee", false, "Walk-in", null, "Cash - Pending", null, 35);
-        g3.setPreferredRoomType(Room.TYPE_DOUBLE);
-        g3.applyLongStayPromotion(); // Long stay > 30 days -> Auto Gold Member
-
-        Guest g4 = new Guest("VIP-1003", "Dr. Clara", false, "Booked", null, "Direct Transfer", new Member("M104", "ELITE", 1800), 4);
-        g4.setPreferredRoomType(Room.TYPE_DELUXE);
-        g4.redeemPointsForStay(Room.TYPE_DELUXE); // Redeemed 400 pts for 2-day free stay
-
-        Guest g5 = new Guest("WI-1001", "Lau Yue", false, "Walk-in", null, "Cash - Pending", null, 2);
-        g5.setPreferredRoomType(Room.TYPE_SINGLE);
-
-        frontDeskControl.addGuest(g1);
-        frontDeskControl.addGuest(g2);
-        frontDeskControl.addGuest(g3);
-        frontDeskControl.addGuest(g4);
-        frontDeskControl.addGuest(g5);
-    }
+        // Non-VIP guests
+        walkInControl.registerBooking("1001", "Bob Lee", "Cash - Pending", Room.TYPE_DOUBLE, 35);
+        walkInControl.registerWalkIn("Lau Yue", "Cash - Pending", Room.TYPE_SINGLE, 2);    }
 
     private int getIntInput() {
         while (!scanner.hasNextInt()) {
