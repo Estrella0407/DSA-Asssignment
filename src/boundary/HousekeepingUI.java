@@ -206,7 +206,7 @@ public class HousekeepingUI {
             System.out.println("Room         : "
                     + task.getRoomNumber());
             System.out.println("Changed back : " + task.getNewStatus() + " -> " + task.getPreviousStatus());
-        } catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             System.out.println("Rollback failed: " + ex.getMessage());
         }
     }
