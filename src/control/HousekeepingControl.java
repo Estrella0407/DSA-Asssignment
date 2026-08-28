@@ -168,15 +168,19 @@ public class HousekeepingControl {
      * restores that task's previous cleaning status.
      */
     public HousekeepingTask rollbackLatestUpdate() {
-        HousekeepingTask latest = taskLog.removeLast();
-        if (latest == null) {
+        int lastIndex = taskLog.getNumberOfEntries() - 1;
+
+        if (lastIndex < 0) {
             return null;
         }
+        HousekeepingTask latest = taskLog.getEntry(lastIndex);
+        validateRollbackState(latest);
+
+        taskLog.removeLast();
 
         Room room = latest.getRoom();
-        if (room != null) {
-            room.setCleaningStatus(latest.getPreviousStatus());
-        }
+        room.setCleaningStatus(latest.getPreviousStatus());
+
         return latest;
     }
 
@@ -204,10 +208,12 @@ public class HousekeepingControl {
             return null;
         }
 
-        HousekeepingTask latest = taskLog.removeAt(latestIndex);
-        if (latest != null) {
-            room.setCleaningStatus(latest.getPreviousStatus());
-        }
+        HousekeepingTask latest = taskLog.getEntry(latestIndex);
+        validateRollbackState(latest);
+
+        taskLog.removeAt(latestIndex);
+        room.setCleaningStatus(latest.getPreviousStatus());
+
         return latest;
     }
 
@@ -653,6 +659,36 @@ public class HousekeepingControl {
             return roomCompare;
         }
         return first.getTaskId().compareToIgnoreCase(second.getTaskId());
+    }
+
+    /**
+ * Ensures that rollback does not overwrite a newer room status
+ * changed by another module.
+ */
+    private void validateRollbackState(HousekeepingTask task) {
+        if (task == null || task.getRoom() == null) {
+            throw new IllegalStateException(
+                    "Undo rejected because the task has no valid room."
+            );
+        }
+
+        Room room = task.getRoom();
+
+        String currentStatus =
+                normalizeStatus(room.getCleaningStatus());
+
+        String recordedNewStatus =
+                normalizeStatus(task.getNewStatus());
+
+        if (!currentStatus.equalsIgnoreCase(recordedNewStatus)) {
+            throw new IllegalStateException(
+                    "Undo rejected because Room "
+                    + room.getRoomNumber()
+                    + " was changed by another module. "
+                    + "Current status: " + currentStatus
+                    + ", expected status: " + recordedNewStatus + "."
+            );
+        }
     }
 
     private String normalizeStatus(String status) {
