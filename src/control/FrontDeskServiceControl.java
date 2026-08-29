@@ -13,6 +13,8 @@ import adt.Dictionary;
 import adt.DoublyLinkedList;
 import entity.Guest;
 import entity.Room;
+import entity.StayRecord;
+import java.time.LocalDate;
 
 public class FrontDeskServiceControl {
     private GuestDirectory guestDirectory;
@@ -59,6 +61,49 @@ public class FrontDeskServiceControl {
     public Room findRoom(String roomNumber){
         return roomTable.getValue(roomNumber);
     }
+
+    /**
+     * Partial / prefix room lookup: returns every room whose number starts with
+     * the given text (case-insensitive), sorted ascending by room number.
+     * e.g. "10" -> 101, 102, 103, 104, 105.
+     */
+    public DoublyLinkedList<Room> findRoomsByPrefix(String prefix){
+        DoublyLinkedList<Room> matches = new DoublyLinkedList<>();
+        if(prefix == null){
+            return matches;
+        }
+        String needle = prefix.trim().toUpperCase();
+        if(needle.isEmpty()){
+            return matches;
+        }
+
+        Object[] all = roomTable.getValues();
+        Room[] buffer = new Room[all.length];
+        int found = 0;
+        for(Object o : all){
+            Room r = (Room) o;
+            if(r != null && r.getRoomNumber() != null
+                    && r.getRoomNumber().toUpperCase().startsWith(needle)){
+                buffer[found++] = r;
+            }
+        }
+
+        // Manual insertion sort by room number (ascending).
+        for(int i = 1; i < found; i++){
+            Room key = buffer[i];
+            int j = i - 1;
+            while(j >= 0 && buffer[j].getRoomNumber().compareToIgnoreCase(key.getRoomNumber()) > 0){
+                buffer[j + 1] = buffer[j];
+                j--;
+            }
+            buffer[j + 1] = key;
+        }
+
+        for(int i = 0; i < found; i++){
+            matches.insertLast(buffer[i]);
+        }
+        return matches;
+    }
     
     public Object[] getRooms(){
         return roomTable.getValues();
@@ -74,6 +119,57 @@ public class FrontDeskServiceControl {
 
     public DoublyLinkedList<Guest> getGuestList() {
         return guestDirectory.getGuestList();
+    }
+
+    /**
+     * Moves a checked-in guest to a different (available, ready) room: releases
+     * the old room (Available + Dirty), occupies the new one, and logs a
+     * ROOM-CHANGED event so the transfer shows up in the stay-history timeline.
+     */
+    public boolean transferRoom(String confirmationNumber, String newRoomNumber) {
+        Guest guest = findGuest(confirmationNumber);
+        if (guest == null) {
+            throw new IllegalArgumentException(
+                    "No guest found with confirmation number \"" + confirmationNumber + "\".");
+        }
+        if (!guest.getCheckInStatus()) {
+            throw new IllegalStateException(
+                    "Guest \"" + guest.getName() + "\" is not currently checked in.");
+        }
+        Room newRoom = (newRoomNumber == null) ? null : roomTable.getValue(newRoomNumber.trim());
+        if (newRoom == null) {
+            throw new IllegalArgumentException("Room \"" + newRoomNumber + "\" does not exist.");
+        }
+
+        Room oldRoom = guest.getAssignedRoom();
+        if (oldRoom != null && oldRoom.getRoomNumber().equalsIgnoreCase(newRoom.getRoomNumber())) {
+            throw new IllegalStateException("Guest is already in room " + newRoom.getRoomNumber() + ".");
+        }
+        if (!newRoom.isAvailable() || !"Ready for Check-In".equalsIgnoreCase(newRoom.getCleaningStatus())) {
+            throw new IllegalStateException(
+                    "Room " + newRoom.getRoomNumber() + " is not 'Ready for Check-In' / available.");
+        }
+
+        String fromLabel = (oldRoom != null)
+                ? oldRoom.getRoomNumber() + " (" + oldRoom.getRoomType() + ")"
+                : "Unassigned";
+        if (oldRoom != null) {
+            oldRoom.setAvailability(true);
+            oldRoom.setCleaningStatus("Dirty");
+        }
+        newRoom.setAvailability(false);
+        guest.assignRoom(newRoom);
+
+        guestDirectory.recordEvent(guest, StayRecord.EVENT_ROOM_CHANGED, "Transferred from " + fromLabel);
+        return true;
+    }
+
+    /**
+     * Chronological stay-history timeline, optionally narrowed by confirmation
+     * number and/or date range. Appended to the Guest Occupancy Report.
+     */
+    public String getStayHistorySection(String confFilter, LocalDate fromDate, LocalDate toDate) {
+        return guestDirectory.buildStayHistorySection(confFilter, fromDate, toDate);
     }
 
     public static double getRoomRate(String roomType) {

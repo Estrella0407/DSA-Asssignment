@@ -10,6 +10,7 @@ package boundary;
 
 import control.WalkInRegistrationControl;
 import entity.Guest;
+import entity.StayRecord;
 import java.util.Scanner;
 
 public class WalkInRegistrationUI {
@@ -205,6 +206,32 @@ public class WalkInRegistrationUI {
         }
 
         control.printGuestCheckInReport(typeFilter, statusFilter);
+
+        promptStayHistorySection();
+    }
+
+    /**
+     * Optional add-on: asks whether staff want the stay-history / activity
+     * timeline. Declining simply returns to the menu.
+     */
+    private void promptStayHistorySection() {
+        int view = readInt("\nView stay history / activity timeline? (1: Yes | 0: No): ");
+        if (view != 1) {
+            return;
+        }
+
+        System.out.println("--- Stay History Timeline Filters ---");
+        System.out.print("Confirmation number (blank = all guests): ");
+        String histConf = sc.nextLine().trim();
+        if (histConf.isEmpty()) {
+            histConf = null;
+        }
+        System.out.print("From date dd/MM/yyyy (blank = no lower bound): ");
+        java.time.LocalDate fromDate = StayRecord.parseDate(sc.nextLine());
+        System.out.print("To date dd/MM/yyyy (blank = no upper bound): ");
+        java.time.LocalDate toDate = StayRecord.parseDate(sc.nextLine());
+
+        System.out.println(control.getStayHistorySection(histConf, fromDate, toDate));
     }
 
     private void generateQueueSummaryReport() {

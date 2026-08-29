@@ -17,6 +17,8 @@ import adt.PriorityQueueInterface;
 import entity.Guest;
 import entity.Member;
 import entity.Room;
+import entity.StayRecord;
+import java.time.LocalDate;
 
 public class PriorityAllocationControl {
 
@@ -70,6 +72,9 @@ public class PriorityAllocationControl {
      */
     public boolean addPriorityGuest(Guest guest) {
         if (guest != null && guest.getMemberProfile() != null) {
+            if (guest.getQueueEntryTime() <= 0) {
+                guest.setQueueEntryTime(System.currentTimeMillis());
+            }
             return priorityQueue.enqueue(guest);
         }
         return false;
@@ -129,13 +134,38 @@ public class PriorityAllocationControl {
             guest.redeemPointsForStay(guest.getPreferredRoomType());
         }
 
+        guest.setQueueEntryTime(System.currentTimeMillis());
         if (priorityQueue.enqueue(guest)) {
             if (guestDirectory != null) {
                 guestDirectory.add(guest);
+                guestDirectory.recordEvent(guest, StayRecord.EVENT_REGISTERED, "VIP reservation enqueued");
+                if (guest.getMemberProfile() != null && guest.getLastPromotionMessage() != null) {
+                    guestDirectory.recordEvent(guest, StayRecord.EVENT_TIER_PROMOTED,
+                            "Promoted to " + guest.getMemberProfile().getTierType()
+                            + " tier (long-stay " + guest.getStayDays() + "d)");
+                }
             }
             return guest;
         }
         return null;
+    }
+
+    /** Null-safe stay-history event recording (the shared directory is optional in some contexts). */
+    private void recordHistory(Guest guest, String eventType, String remarks) {
+        if (guestDirectory != null) {
+            guestDirectory.recordEvent(guest, eventType, remarks);
+        }
+    }
+
+    /**
+     * Chronological stay-history timeline, optionally narrowed by confirmation
+     * number and/or date range. Appended to VIP Report 1.
+     */
+    public String getStayHistorySection(String confFilter, LocalDate fromDate, LocalDate toDate) {
+        if (guestDirectory == null) {
+            return "\n  (Stay history unavailable - no shared guest directory in this context.)\n";
+        }
+        return guestDirectory.buildStayHistorySection(confFilter, fromDate, toDate);
     }
 
     private boolean isConfirmationNumberTaken(String confirmationNumber) {
@@ -199,12 +229,12 @@ public class PriorityAllocationControl {
      * skipped over.
      */
     public Guest allocateFirstAvailableRoom() {
+        purgeServedGuests();
         if (priorityQueue.isEmpty()) {
             return null;
         }
 
-        int size = priorityQueue.getSize();
-        for (int i = 0; i < size; i++) {
+        for (int i = 0; i < priorityQueue.getSize(); i++) {
             Guest candidate = priorityQueue.getEntry(i);
             if (candidate == null) {
                 continue;
@@ -262,6 +292,7 @@ public class PriorityAllocationControl {
      * Allocate a specific room number to the highest-priority VIP guest.
      */
     public Guest allocateSpecificRoom(String roomNumber) {
+        purgeServedGuests();
         if (priorityQueue.isEmpty() || roomNumber == null) {
             return null;
         }
@@ -291,6 +322,8 @@ public class PriorityAllocationControl {
         nextGuest.assignRoom(room);
         nextGuest.checkIn();
         room.setAvailability(false);
+        recordHistory(nextGuest, StayRecord.EVENT_CHECKED_IN,
+                "VIP priority allocation to room " + room.getRoomNumber());
 
         allocatedVipRecords.insertLast(nextGuest);
         totalPriorityProcessed++;
@@ -328,11 +361,70 @@ public class PriorityAllocationControl {
     }
 
     public int getQueueSize() {
+        purgeServedGuests();
         return priorityQueue.getSize();
     }
 
     public Guest peekNextVIP() {
+        purgeServedGuests();
         return priorityQueue.getMin();
+    }
+
+    /**
+     * Drops any guest from the pending priority queue who has already been
+     * checked in / given a room by another module (e.g. a walk-in guest who was
+     * mirrored here after a loyalty promotion and then serviced at the front
+     * desk). Keeps the pending waitlist and its reports honest and prevents a
+     * second room from being allocated to the same guest.
+     */
+    private void purgeServedGuests() {
+        for (int i = 0; i < priorityQueue.getSize(); i++) {
+            Guest g = priorityQueue.getEntry(i);
+            if (g != null && (g.getCheckInStatus() || g.getAssignedRoom() != null)) {
+                priorityQueue.dequeueAt(i);
+                i--;
+            }
+        }
+    }
+
+    /**
+     * Check out an allocated VIP guest by confirmation number: releases their
+     * room (Available + Dirty) and flips the guest to Checked-Out.
+     */
+    public boolean checkOutVIP(String confirmationNumber) {
+        if (confirmationNumber == null || confirmationNumber.trim().isEmpty()) {
+            throw new IllegalArgumentException("Confirmation number cannot be empty.");
+        }
+        String cleanConf = confirmationNumber.trim();
+
+        for (int i = 0; i < allocatedVipRecords.getNumberOfEntries(); i++) {
+            Guest g = allocatedVipRecords.getEntry(i);
+            if (g != null && g.getConfirmationNumber().equalsIgnoreCase(cleanConf)) {
+                if (!g.getCheckInStatus()) {
+                    String reason = Guest.STATUS_CHECKED_OUT.equals(g.getStatus())
+                            ? "already checked out"
+                            : "not currently checked in";
+                    throw new IllegalStateException(
+                            "VIP guest \"" + g.getName() + "\" is " + reason + ".");
+                }
+                Room room = g.getAssignedRoom();
+                if (room != null) {
+                    room.setAvailability(true);
+                    room.setCleaningStatus("Dirty");
+                }
+                g.checkOut();
+                recordHistory(g, StayRecord.EVENT_CHECKED_OUT, "VIP checked out at front desk");
+                g.assignRoom(null);
+                return true;
+            }
+        }
+        throw new IllegalArgumentException(
+                "No allocated VIP guest found with confirmation number \"" + cleanConf + "\".");
+    }
+
+    /** Allocated (checked-in / checked-out) VIP records, for the check-out picker and reports. */
+    public DoublyLinkedListInterface<Guest> getAllocatedVipRecords() {
+        return allocatedVipRecords;
     }
 
     public PriorityQueueInterface<Guest> getPriorityQueue() {
@@ -343,6 +435,7 @@ public class PriorityAllocationControl {
      * Quick unformatted view of the pending VIP queue in priority order.
      */
     public String getQueueSnapshot() {
+        purgeServedGuests();
         StringBuilder sb = new StringBuilder();
         int size = priorityQueue.getSize();
         if (size == 0) {
@@ -440,6 +533,7 @@ public class PriorityAllocationControl {
     // Combines: Linear Search + Multi-Criteria Filter + Manual Insertion Sort
     // =========================================================================
     public String generatePriorityWaitlistReport(String tierFilter, Integer minPointsFilter) {
+        purgeServedGuests();
         StringBuilder sb = new StringBuilder();
         sb.append("\n=========================================================================================================\n");
         sb.append("                               REPORT 2: ACTIVE VIP PRIORITY WAITLIST & REAL-TIME AUDIT                  \n");
@@ -447,10 +541,14 @@ public class PriorityAllocationControl {
         sb.append(String.format("Filters -> Tier: %-10s | Min Points: %s\n",
                 (tierFilter == null ? "ALL" : tierFilter),
                 (minPointsFilter == null ? "0" : minPointsFilter)));
-        sb.append("---------------------------------------------------------------------------------------------------------\n");
-        sb.append(String.format("%-4s | %-10s | %-16s | %-10s | %-6s | %-10s | %-8s | %-15s\n",
-                "Pos", "Conf. No", "Guest Name", "Member Tier", "Stay", "Points", "Pref Type", "Status"));
-        sb.append("---------------------------------------------------------------------------------------------------------\n");
+        sb.append("--------------------------------------------------------------------------------------------------------------------\n");
+        sb.append(String.format("%-4s | %-10s | %-16s | %-11s | %-6s | %-10s | %-8s | %-15s | %-12s\n",
+                "Pos", "Conf. No", "Guest Name", "Member Tier", "Stay", "Points", "Pref Type", "Status", "Waited"));
+        sb.append("--------------------------------------------------------------------------------------------------------------------\n");
+
+        long now = System.currentTimeMillis();
+        long totalWaitMillis = 0;     // across every guest currently in the priority queue
+        long matchingWaitMillis = 0;  // across only the guests shown in the table
 
         int queueSize = priorityQueue.getSize();
         if (queueSize == 0) {
@@ -462,6 +560,7 @@ public class PriorityAllocationControl {
             for (int i = 0; i < queueSize; i++) {
                 Guest g = priorityQueue.getEntry(i);
                 if (g != null && g.getMemberProfile() != null) {
+                    totalWaitMillis += waitedMillis(g, now);
                     Member m = g.getMemberProfile();
                     boolean matchesTier = (tierFilter == null) || m.getTierType().equalsIgnoreCase(tierFilter);
                     boolean matchesPoints = (minPointsFilter == null) || (m.getPoints() >= minPointsFilter);
@@ -478,17 +577,46 @@ public class PriorityAllocationControl {
                     Guest g = temp[i];
                     Member m = g.getMemberProfile();
                     String pref = (g.getPreferredRoomType() == null) ? "Any" : g.getPreferredRoomType();
-                    sb.append(String.format("%-4d | %-10s | %-16s | %-10s | %2d nts | %-10d | %-8s | %-15s\n",
-                            (i + 1), g.getConfirmationNumber(), g.getName(), m.getTierType(), g.getStayDays(), m.getPoints(), pref, "Awaiting Room"));
+                    long waited = waitedMillis(g, now);
+                    matchingWaitMillis += waited;
+                    sb.append(String.format("%-4d | %-10s | %-16s | %-11s | %2d nts | %-10d | %-8s | %-15s | %-12s\n",
+                            (i + 1), g.getConfirmationNumber(), g.getName(), m.getTierType(), g.getStayDays(),
+                            m.getPoints(), pref, "Awaiting Room", formatWaiting(waited)));
                 }
             }
         }
 
-        sb.append("---------------------------------------------------------------------------------------------------------\n");
-        sb.append(String.format("Total Pending High-Tier Allocations: %d\n", priorityQueue.getSize()));
+        sb.append("--------------------------------------------------------------------------------------------------------------------\n");
+        sb.append(String.format("Total Pending High-Tier Allocations : %d\n", priorityQueue.getSize()));
+        sb.append(String.format("Total Time Waited (matching guests) : %s\n", formatWaiting(matchingWaitMillis)));
+        sb.append(String.format("Total Time Waited (whole waitlist)  : %s\n", formatWaiting(totalWaitMillis)));
+        if (priorityQueue.getSize() > 0) {
+            sb.append(String.format("Average Wait per Waiting Guest      : %s\n",
+                    formatWaiting(totalWaitMillis / priorityQueue.getSize())));
+        }
         sb.append("=========================================================================================================\n");
 
         return sb.toString();
+    }
+
+    /** Milliseconds a VIP guest has been waiting in the priority queue (0 if the entry time was never recorded). */
+    private static long waitedMillis(Guest g, long now) {
+        return (g.getQueueEntryTime() > 0) ? Math.max(0, now - g.getQueueEntryTime()) : 0L;
+    }
+
+    /** Formats a millisecond duration as a compact "1h 02m 03s" / "2m 05s" / "12s" string (matches the Walk-In report). */
+    private static String formatWaiting(long millis) {
+        long totalSeconds = millis / 1000;
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return String.format("%dh %02dm %02ds", hours, minutes, seconds);
+        }
+        if (minutes > 0) {
+            return String.format("%dm %02ds", minutes, seconds);
+        }
+        return seconds + "s";
     }
 
     private boolean shouldSwapVipReport(Guest first, Guest second) {

@@ -12,6 +12,7 @@ import adt.DoublyLinkedList;
 import control.FrontDeskServiceControl;
 import entity.Guest;
 import entity.Room;
+import entity.StayRecord;
 import java.util.Scanner;
 
 public class FrontDeskServiceUI {
@@ -32,14 +33,15 @@ public class FrontDeskServiceUI {
             System.out.println("1. Search Guest Information (8-digit Confirmation)");
             System.out.println("2. Search Room Availability");
             System.out.println("3. Query Billing Details");
-            System.out.println("4. Generate Guest Billing Summary Report");
-            System.out.println("5. Generate Guest Occupancy Report");
+            System.out.println("4. Transfer Guest Room");
+            System.out.println("5. Generate Guest Billing Summary Report");
+            System.out.println("6. Generate Guest Occupancy Report");
             System.out.println("0. Back to Main Menu");
             System.out.println("--------------------------------------------------");
             System.out.print("Please select an option: ");
-                
+
                 choice = readInteger();
-                
+
                 switch(choice){
                     case 1:
                         searchGuest();
@@ -51,9 +53,12 @@ public class FrontDeskServiceUI {
                         checkBilling();
                         break;
                     case 4:
-                        frontDeskReport1();
+                        transferRoom();
                         break;
                     case 5:
+                        frontDeskReport1();
+                        break;
+                    case 6:
                         frontDeskReport2();
                         break;
                     case 0:
@@ -152,21 +157,54 @@ public class FrontDeskServiceUI {
         }
         
         public void checkRoom(){
-            System.out.print("Enter room number: ");
+            System.out.print("Enter room number (full or partial): ");
             String roomNumber = scanner.nextLine().trim();
-            
+
+            // Exact match first - keep the detailed single-room view.
             Room room = controller.findRoom(roomNumber);
-            
-            if(room == null){
+            if(room != null){
+                displayRoom(room);
+                return;
+            }
+
+            // No exact match: fall back to a prefix search so "10" lists 101-105.
+            DoublyLinkedList<Room> matches = controller.findRoomsByPrefix(roomNumber);
+            if(matches.getNumberOfEntries() == 0){
                 System.out.println("\n=================================================");
-                System.out.println("           ROOM NOT FOUND");
+                System.out.println("                ROOM NOT FOUND");
                 System.out.println("===================================================");
                 System.out.println("Room Number: " + roomNumber);
                 System.out.println("Please check the room number and try again. :)");
                 System.out.println("---------------------------------------------------");
-                return; 
+                return;
             }
-            
+
+            if(matches.getNumberOfEntries() == 1){
+                displayRoom(matches.getEntry(0));
+                return;
+            }
+
+            System.out.println("\n===========================================================================");
+            System.out.println("                        ROOMS MATCHING \"" + roomNumber + "\"");
+            System.out.println("===========================================================================");
+            System.out.printf("%-8s %-10s %-24s %-14s %-12s%n",
+                    "Room", "Type", "Cleaning Status", "Availability", "Rate/night");
+            System.out.println("---------------------------------------------------------------------------");
+            for(int i = 0; i < matches.getNumberOfEntries(); i++){
+                Room r = matches.getEntry(i);
+                System.out.printf("%-8s %-10s %-24s %-14s RM %8.2f%n",
+                        r.getRoomNumber(),
+                        r.getRoomType(),
+                        r.getCleaningStatus(),
+                        r.isAvailable() ? "Available" : "Not Available",
+                        FrontDeskServiceControl.getRoomRate(r.getRoomType()));
+            }
+            System.out.println("---------------------------------------------------------------------------");
+            System.out.println("Total: " + matches.getNumberOfEntries() + " room(s) matched");
+            System.out.println("===========================================================================");
+        }
+
+        private void displayRoom(Room room){
             String availability = room.isAvailable() ? "Available" : "Not Available";
             System.out.println("\n===================================================");
             System.out.println("                    ROOM INFORMATION");
@@ -339,8 +377,62 @@ public class FrontDeskServiceUI {
             System.out.println("Occupied Rooms: " + occupiedRooms);
             System.out.printf("Occupancy Rate: %.2f%%%n", occupancyRate);
             System.out.println("=========================================================================================");
+
+            promptStayHistorySection();
         }
-        
+
+        /**
+         * Optional add-on: asks whether staff want the stay-history / activity
+         * timeline. Declining simply returns to the menu.
+         */
+        private void promptStayHistorySection(){
+            System.out.print("\nView stay history / activity timeline? (1: Yes | 0: No): ");
+            if(readInteger() != 1){
+                return;
+            }
+
+            System.out.println("--- Stay History Timeline Filters ---");
+            System.out.print("Confirmation number (blank = all guests): ");
+            String histConf = scanner.nextLine().trim();
+            if(histConf.isEmpty()){
+                histConf = null;
+            }
+            System.out.print("From date dd/MM/yyyy (blank = no lower bound): ");
+            java.time.LocalDate fromDate = StayRecord.parseDate(scanner.nextLine());
+            System.out.print("To date dd/MM/yyyy (blank = no upper bound): ");
+            java.time.LocalDate toDate = StayRecord.parseDate(scanner.nextLine());
+
+            System.out.println(controller.getStayHistorySection(histConf, fromDate, toDate));
+        }
+
+        public void transferRoom(){
+            System.out.print("Enter guest confirmation number: ");
+            String conf = scanner.nextLine().trim();
+
+            Guest guest = controller.findGuest(conf);
+            if(guest == null){
+                System.out.println("Guest with confirmation number \"" + conf + "\" was not found!");
+                return;
+            }
+            String currentRoom = (guest.getAssignedRoom() != null)
+                    ? guest.getAssignedRoom().getRoomNumber() + " (" + guest.getAssignedRoom().getRoomType() + ")"
+                    : "Unassigned";
+            System.out.println("Guest: " + guest.getName() + " | Current room: " + currentRoom
+                    + " | Status: " + guest.getStatus());
+
+            System.out.print("Enter new room number to transfer into: ");
+            String newRoom = scanner.nextLine().trim();
+            try{
+                controller.transferRoom(conf, newRoom);
+                Guest updated = controller.findGuest(conf);
+                System.out.println(">> Transfer successful. " + updated.getName() + " is now in room "
+                        + updated.getAssignedRoom().getRoomNumber()
+                        + " (" + updated.getAssignedRoom().getRoomType() + "). Previous room released as Dirty.");
+            } catch (IllegalArgumentException | IllegalStateException ex){
+                System.out.println(">> Could not transfer room: " + ex.getMessage());
+            }
+        }
+
         public int readInteger(){
             while(!scanner.hasNextInt()){
                 System.out.println("Invalid input! Please enter a number");

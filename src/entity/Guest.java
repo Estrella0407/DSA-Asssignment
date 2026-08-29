@@ -32,6 +32,7 @@ public class Guest implements Serializable, Comparable<Guest> {
     private String billingDetails;
     private Member memberProfile; // Nullable if guest is not a loyalty member
     private String lastPromotionMessage; // set by applyLongStayPromotion(); null if no milestone reached this call
+    private long queueEntryTime = 0L; // epoch millis when the guest joined a processing queue; 0 = not queued / not tracked
 
     public Guest() {
         this("", "", false, "Walk-in", null, "", null, 1);
@@ -159,6 +160,24 @@ public class Guest implements Serializable, Comparable<Guest> {
     
     public String getLastPromotionMessage() {
         return lastPromotionMessage;
+    }
+
+    /**
+     * Time recorded when the guest was placed into a processing queue
+     * (0 if the guest has never been queued). Used by the Walk-In queue report
+     * to compute how long each guest has been waiting.
+     */
+    public long getQueueEntryTime() {
+        return queueEntryTime;
+    }
+
+    public void setQueueEntryTime(long queueEntryTime) {
+        this.queueEntryTime = queueEntryTime;
+    }
+
+    /** Milliseconds the guest has been waiting in the queue, or 0 if untracked. */
+    public long getWaitingMillis() {
+        return (queueEntryTime > 0) ? Math.max(0, System.currentTimeMillis() - queueEntryTime) : 0L;
     }
 
     public String getBillingDetails() {

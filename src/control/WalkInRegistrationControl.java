@@ -14,6 +14,8 @@ import adt.DoublyLinkedListInterface;
 import entity.Guest;
 import entity.Member;
 import entity.Room;
+import entity.StayRecord;
+import java.time.LocalDate;
 
 public class WalkInRegistrationControl {
 
@@ -37,6 +39,11 @@ public class WalkInRegistrationControl {
 
     private final GuestDirectory guestDirectory; // nullable - shared "database"
 
+    // nullable - shared VIP priority queue. When set, a walk-in / booking guest
+    // who gains a loyalty Member profile (e.g. via a long-stay promotion) is also
+    // enqueued here so the VIP & Loyalty module can see them.
+    private PriorityAllocationControl priorityControl;
+
     private int confirmationSeed = 1000;
 
     public WalkInRegistrationControl(DoublyLinkedListInterface<Room> roomList) {
@@ -48,6 +55,57 @@ public class WalkInRegistrationControl {
         this.guestRecords = new DoublyLinkedList<>();
         this.roomList = roomList;
         this.guestDirectory = guestDirectory;
+    }
+
+    /**
+     * Wire in the shared VIP priority queue (set once during system start-up).
+     * A separate setter avoids a circular constructor dependency between the
+     * Walk-In and VIP controls.
+     */
+    public void setPriorityControl(PriorityAllocationControl priorityControl) {
+        this.priorityControl = priorityControl;
+    }
+
+    /**
+     * If the guest holds a loyalty Member profile, mirror them into the shared
+     * VIP priority queue so the VIP & Loyalty Tier module lists them too. Safe to
+     * call for every registration - non-members are ignored.
+     */
+    private void mirrorToVipQueueIfMember(Guest guest) {
+        if (priorityControl != null && guest != null && guest.getMemberProfile() != null) {
+            priorityControl.addPriorityGuest(guest);
+        }
+    }
+
+    /** Null-safe stay-history event recording (the shared directory is optional in some contexts). */
+    private void recordHistory(Guest guest, String eventType, String remarks) {
+        if (guestDirectory != null) {
+            guestDirectory.recordEvent(guest, eventType, remarks);
+        }
+    }
+
+    /** Records the REGISTERED event plus a TIER-PROMOTED event if a long-stay milestone just fired. */
+    private void recordRegistration(Guest guest, String remarks) {
+        if (guestDirectory == null) {
+            return;
+        }
+        guestDirectory.recordEvent(guest, StayRecord.EVENT_REGISTERED, remarks);
+        if (guest.getMemberProfile() != null && guest.getLastPromotionMessage() != null) {
+            guestDirectory.recordEvent(guest, StayRecord.EVENT_TIER_PROMOTED,
+                    "Promoted to " + guest.getMemberProfile().getTierType()
+                    + " tier (long-stay " + guest.getStayDays() + "d)");
+        }
+    }
+
+    /**
+     * Chronological stay-history timeline, optionally narrowed by confirmation
+     * number and/or date range. Appended to the Guest Check-In Status Report.
+     */
+    public String getStayHistorySection(String confFilter, LocalDate fromDate, LocalDate toDate) {
+        if (guestDirectory == null) {
+            return "\n  (Stay history unavailable - no shared guest directory in this context.)\n";
+        }
+        return guestDirectory.buildStayHistorySection(confFilter, fromDate, toDate);
     }
 
     /*
@@ -84,12 +142,15 @@ public class WalkInRegistrationControl {
             guest.redeemPointsForStay(guest.getPreferredRoomType());
         }
 
+        guest.setQueueEntryTime(System.currentTimeMillis());
         guestQueue.insertLast(guest);
         guestRecords.insertLast(guest);
 
         if (guestDirectory != null) {
             guestDirectory.add(guest);
         }
+        mirrorToVipQueueIfMember(guest);
+        recordRegistration(guest, "Walk-in registration");
 
         return guest;
     }
@@ -139,12 +200,15 @@ public class WalkInRegistrationControl {
             guest.redeemPointsForStay(guest.getPreferredRoomType());
         }
 
+        guest.setQueueEntryTime(System.currentTimeMillis());
         guestQueue.insertLast(guest);
         guestRecords.insertLast(guest);
 
         if (guestDirectory != null) {
             guestDirectory.add(guest);
         }
+        mirrorToVipQueueIfMember(guest);
+        recordRegistration(guest, "Standard booking registration");
 
         return guest;
     }
@@ -176,6 +240,11 @@ public class WalkInRegistrationControl {
     Returns null if the queue is empty or no matching clean room is available.
     */
     public Guest processNextGuest() {
+        // Drop guests at the front who were already checked in elsewhere
+        // (e.g. a promoted member serviced by the VIP module).
+        while (!guestQueue.isEmpty() && guestQueue.retrieveFirst().getCheckInStatus()) {
+            guestQueue.removeFirst();
+        }
         if (guestQueue.isEmpty()) {
             return null;
         }
@@ -188,6 +257,7 @@ public class WalkInRegistrationControl {
         room.setAvailability(false);
         guest.assignRoom(room);
         guest.checkIn();
+        recordHistory(guest, StayRecord.EVENT_CHECKED_IN, "Checked in via walk-in queue");
         return guest;
     }
 
@@ -219,8 +289,6 @@ public class WalkInRegistrationControl {
     /*
     Check out a guest by confirmation number (linear search + removal).
     Pre-cond: confirmationNumber is non-blank. 
-    Throws IllegalArgumentException if no matching guest record is found, and
-    IllegalStateException if the matching guest is not currently checked in.
     */
     public boolean checkOutGuest(String confirmationNumber) {
         String cleanConf = requireNonBlank(confirmationNumber, "Confirmation number");
@@ -241,6 +309,7 @@ public class WalkInRegistrationControl {
                     room.setCleaningStatus("Dirty");
                 }
                 g.checkOut();
+                recordHistory(g, StayRecord.EVENT_CHECKED_OUT, "Checked out at front desk");
                 g.assignRoom(null); // guest no longer occupies this room
                 return true;
             }
@@ -248,12 +317,8 @@ public class WalkInRegistrationControl {
         throw new IllegalArgumentException("No guest found with confirmation number \"" + cleanConf + "\".");
     }
 
-    // Report 1: Guest Registration & Check-In Status Report
-    // Combines: linear search (filter by type/status) + insertion sort (by name)
-    /*
-    @param typeFilter null for all types, or "Walk-in"/"Booked"
-    @param statusFilter null for all guests, or one of Guest.STATUS_PENDING,
-    Guest.STATUS_CHECKED_IN, Guest.STATUS_CHECKED_OUT
+    /* Report 1: Guest Registration & Check-In Status Report
+    * Combines: linear search (filter by type/status) + insertion sort (by name) 
     */
     public void printGuestCheckInReport(String typeFilter, String statusFilter) {
         // Step 1: search/filter matching guests into a temporary array.
@@ -308,6 +373,9 @@ public class WalkInRegistrationControl {
         int count = 0;
         int walkInCount = 0;
         int bookedCount = 0;
+        long now = System.currentTimeMillis();
+        long totalWaitMillis = 0;      // across every guest currently in the queue
+        long filteredWaitMillis = 0;   // across only the guests shown in the table
 
         for (int i = 0; i < totalQueue; i++) {
             Guest g = guestQueue.getEntry(i);
@@ -316,6 +384,7 @@ public class WalkInRegistrationControl {
             } else {
                 bookedCount++;
             }
+            totalWaitMillis += waitingMillis(g, now);
 
             if (typeFilter == null || g.getType().equalsIgnoreCase(typeFilter)) {
                 filtered[count++] = g;
@@ -333,13 +402,13 @@ public class WalkInRegistrationControl {
             filtered[j + 1] = key;
         }
 
-        System.out.println("\n=========================================================================================");
-        System.out.println("                         ACTIVE QUEUE WAITLIST AUDIT REPORT");
+        System.out.println("\n=============================================================================================================");
+        System.out.println("                                      ACTIVE QUEUE WAITLIST AUDIT REPORT");
         System.out.println(" Filter -> Type: " + (typeFilter == null ? "ALL" : typeFilter));
-        System.out.println("=========================================================================================");
-        System.out.printf("%-4s %-10s %-16s %-9s %-6s %-10s %-15s %-20s\n",
-                "No", "Conf No", "Guest Name", "Type", "Stay", "Pref Type", "Member Tier", "Billing");
-        System.out.println("-----------------------------------------------------------------------------------------");
+        System.out.println("=============================================================================================================");
+        System.out.printf("%-4s %-10s %-16s %-9s %-6s %-10s %-15s %-12s %-18s\n",
+                "No", "Conf No", "Guest Name", "Type", "Stay", "Pref Type", "Member Tier", "Waiting", "Billing");
+        System.out.println("-------------------------------------------------------------------------------------------------------------");
 
         if (count == 0) {
             System.out.println("                  No waiting guests match the selected criteria.");
@@ -348,15 +417,43 @@ public class WalkInRegistrationControl {
                 Guest g = filtered[i];
                 String pref = (g.getPreferredRoomType() == null) ? "Any" : g.getPreferredRoomType();
                 String tier = (g.getMemberProfile() == null) ? "-" : g.getMemberProfile().getTierType() + " (" + g.getMemberProfile().getPoints() + ")";
-                System.out.printf("%-4d %-10s %-16s %-9s %2d nts %-10s %-15s %-20s\n",
-                        (i + 1), g.getConfirmationNumber(), g.getName(), g.getType(), g.getStayDays(), pref, tier, g.getBillingDetails());
+                long wait = waitingMillis(g, now);
+                filteredWaitMillis += wait;
+                System.out.printf("%-4d %-10s %-16s %-9s %2d nts %-10s %-15s %-12s %-18s\n",
+                        (i + 1), g.getConfirmationNumber(), g.getName(), g.getType(), g.getStayDays(), pref, tier,
+                        formatDuration(wait), g.getBillingDetails());
             }
         }
 
-        System.out.println("-----------------------------------------------------------------------------------------");
+        System.out.println("-------------------------------------------------------------------------------------------------------------");
         System.out.println(" Total Matching Guests In Queue : " + count);
         System.out.println(" Overall Queue Stats -> Total: " + totalQueue + " | Walk-in: " + walkInCount + " | Booked: " + bookedCount);
+        System.out.println(" Total Waiting Time (matching guests) : " + formatDuration(filteredWaitMillis));
+        System.out.println(" Total Waiting Time (whole queue)     : " + formatDuration(totalWaitMillis));
+        if (totalQueue > 0) {
+            System.out.println(" Average Waiting Time per Guest       : " + formatDuration(totalWaitMillis / totalQueue));
+        }
         System.out.println("=========================================================================================\n");
+    }
+
+    /** Milliseconds a guest has been waiting in the queue (0 if the entry time was never recorded). */
+    private static long waitingMillis(Guest g, long now) {
+        return (g.getQueueEntryTime() > 0) ? Math.max(0, now - g.getQueueEntryTime()) : 0L;
+    }
+
+    /** Formats a millisecond duration as a compact "1h 02m 03s" / "2m 05s" / "12s" string. */
+    private static String formatDuration(long millis) {
+        long totalSeconds = millis / 1000;
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return String.format("%dh %02dm %02ds", hours, minutes, seconds);
+        }
+        if (minutes > 0) {
+            return String.format("%dm %02ds", minutes, seconds);
+        }
+        return seconds + "s";
     }
 
     public void printQueueSummaryReport() {

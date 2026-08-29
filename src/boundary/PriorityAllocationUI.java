@@ -12,6 +12,7 @@ import adt.DoublyLinkedListInterface;
 import control.PriorityAllocationControl;
 import entity.Guest;
 import entity.Room;
+import entity.StayRecord;
 import java.util.Scanner;
 
 public class PriorityAllocationUI {
@@ -37,9 +38,10 @@ public class PriorityAllocationUI {
             System.out.println("1. Add Priority VIP Reservation");
             System.out.println("2. Auto-Allocate Next Available Room to Highest-Tier VIP");
             System.out.println("3. Allocate Specific Room to Highest-Tier VIP");
-            System.out.println("4. View Current Pending VIP Priority Queue");
-            System.out.println("5. Generate Report 1: VIP Tier Allocation & Demand Summary");
-            System.out.println("6. Generate Report 2: Active VIP Waitlist Real-Time Audit");
+            System.out.println("4. Check-Out VIP Guest");
+            System.out.println("5. View Current Pending VIP Priority Queue");
+            System.out.println("6. Generate Report 1: VIP Tier Allocation & Demand Summary");
+            System.out.println("7. Generate Report 2: Active VIP Waitlist Real-Time Audit");
             System.out.println("0. Back to Main Menu");
             System.out.println("------------------------------------------------------------");
             System.out.print("Enter choice: ");
@@ -57,19 +59,22 @@ public class PriorityAllocationUI {
                     allocateSpecificRoom();
                     break;
                 case 4:
-                    viewPendingQueue();
+                    checkOutVIP();
                     break;
                 case 5:
-                    generateReport1();
+                    viewPendingQueue();
                     break;
                 case 6:
+                    generateReport1();
+                    break;
+                case 7:
                     generateReport2();
                     break;
                 case 0:
                     System.out.println("Returning to Main Menu...");
                     break;
                 default:
-                    System.out.println("Invalid option! Please enter a number between 0 and 6.");
+                    System.out.println("Invalid option! Please enter a number between 0 and 7.");
             }
         } while (choice != 0);
     }
@@ -276,6 +281,38 @@ public class PriorityAllocationUI {
         }
     }
     
+    private void checkOutVIP() {
+        DoublyLinkedListInterface<Guest> records = control.getAllocatedVipRecords();
+
+        System.out.println("\n----------------- CHECKED-IN VIP GUESTS -----------------");
+        int checkedInCount = 0;
+        for (int i = 0; i < records.getNumberOfEntries(); i++) {
+            Guest g = records.getEntry(i);
+            if (g != null && g.getCheckInStatus()) {
+                checkedInCount++;
+                String room = (g.getAssignedRoom() != null) ? g.getAssignedRoom().getRoomNumber() : "-";
+                String tier = (g.getMemberProfile() != null) ? g.getMemberProfile().getTierType() : "-";
+                System.out.printf(" %-10s | %-16s | Room %-5s | %s%n",
+                        g.getConfirmationNumber(), g.getName(), room, tier);
+            }
+        }
+        if (checkedInCount == 0) {
+            System.out.println(" No VIP guests are currently checked in.");
+            System.out.println("--------------------------------------------------------");
+            return;
+        }
+        System.out.println("--------------------------------------------------------");
+
+        System.out.print("Enter confirmation number to check out: ");
+        String conf = scanner.nextLine().trim();
+        try {
+            control.checkOutVIP(conf);
+            System.out.println(">> VIP guest checked out successfully. Room released (Available & Dirty).");
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            System.out.println(">> Could not check out VIP guest: " + ex.getMessage());
+        }
+    }
+
     private void viewPendingQueue() {
         System.out.println("\n----------------- CURRENT VIP PRIORITY QUEUE -----------------");
         System.out.println(control.getQueueSnapshot());
@@ -290,6 +327,32 @@ public class PriorityAllocationUI {
         Integer pointsFilter = (minPts > 0) ? minPts : null;
 
         System.out.println(control.generateTierDistributionReport(tierFilter, pointsFilter));
+
+        promptStayHistorySection();
+    }
+
+    /**
+     * Optional add-on: asks whether staff want the stay-history / activity
+     * timeline. Declining simply returns to the menu.
+     */
+    private void promptStayHistorySection() {
+        System.out.print("\nView stay history / activity timeline? (1: Yes | 0: No): ");
+        if (getIntInput() != 1) {
+            return;
+        }
+
+        System.out.println("--- Stay History Timeline Filters ---");
+        System.out.print("Confirmation number (blank = all guests): ");
+        String histConf = scanner.nextLine().trim();
+        if (histConf.isEmpty()) {
+            histConf = null;
+        }
+        System.out.print("From date dd/MM/yyyy (blank = no lower bound): ");
+        java.time.LocalDate fromDate = StayRecord.parseDate(scanner.nextLine());
+        System.out.print("To date dd/MM/yyyy (blank = no upper bound): ");
+        java.time.LocalDate toDate = StayRecord.parseDate(scanner.nextLine());
+
+        System.out.println(control.getStayHistorySection(histConf, fromDate, toDate));
     }
 
     private void generateReport2() {

@@ -40,7 +40,12 @@ public class MainMenuUI {
         this.walkInControl = new WalkInRegistrationControl(roomList, guestDirectory);
         this.priorityControl = new PriorityAllocationControl(roomList, guestDirectory);
         this.housekeepingControl = new HousekeepingControl(roomList);
-        this.frontDeskControl = new FrontDeskServiceControl(guestDirectory, roomTable);        
+        this.frontDeskControl = new FrontDeskServiceControl(guestDirectory, roomTable);
+
+        // Share the VIP priority queue with the Walk-In control so a walk-in / booking
+        // guest who earns a loyalty tier (e.g. long-stay promotion) also appears there.
+        this.walkInControl.setPriorityControl(priorityControl);
+
         seedRoomsAndGuests();
     }
 
@@ -128,25 +133,43 @@ public class MainMenuUI {
         roomTable.add(r201.getRoomNumber(), r201);
         roomTable.add(r202.getRoomNumber(), r202);
 
-        // All seed data for the whole system lives here, and nowhere else -
-        // every guest below is created through the same real registration
-        // methods each module's UI would call, so seeding exercises the exact
-        // same code path as a live user action and lands in the shared
-        // GuestDirectory automatically.
-
         // VIP guests
         priorityControl.registerVIPGuest("VIP-2001", "Alice Tan", "M-2001", "GOLD", 500,
                 "Credit Card", Room.TYPE_DOUBLE, 3, false);
         priorityControl.registerVIPGuest("VIP-2002", "Dato Steven", "M-2002", "DIAMOND", 2500,
                 "Corporate Billing", Room.TYPE_SUITE, 5, false);
-        priorityControl.registerVIPGuest("VIP-2003", "Bob Lee", "M-2003", "PLATINUM", 1200,
+        priorityControl.registerVIPGuest("VIP-2003", "Columbine Yee", "M-2003", "PLATINUM", 1200,
                 "Credit Card", Room.TYPE_DELUXE, 2, false);
         priorityControl.registerVIPGuest("VIP-2004", "Dr. Clara", "M-2004", "ELITE", 1800,
                 "Direct Transfer", Room.TYPE_SINGLE, 4, true); // demonstrates 2-day redemption
 
         // Non-VIP guests
         walkInControl.registerBooking("1001", "Bob Lee", "Cash - Pending", Room.TYPE_DOUBLE, 35);
-        walkInControl.registerWalkIn("Lau Yue", "Cash - Pending", Room.TYPE_SINGLE, 2);    }
+        walkInControl.registerWalkIn("Lau Yue", "Cash - Pending", Room.TYPE_SINGLE, 2);
+
+        seedStayHistory();
+    }
+
+    /**
+     * A back-dated stay-history arc so the "Stay History & Activity Timeline"
+     * shows a completed prior visit for Dato Steven, including a room transfer
+     * (Deluxe 105 -> Suite 201). Live actions append to the same log going forward.
+     */
+    private void seedStayHistory() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        guestDirectory.addHistory(new entity.StayRecord("SR-0001", "VIP-2002", "Dato Steven",
+                entity.StayRecord.EVENT_REGISTERED, null, null, "DIAMOND",
+                now.minusHours(30), "Prior visit reservation"));
+        guestDirectory.addHistory(new entity.StayRecord("SR-0002", "VIP-2002", "Dato Steven",
+                entity.StayRecord.EVENT_CHECKED_IN, "105", Room.TYPE_DELUXE, "DIAMOND",
+                now.minusHours(28), "Prior visit check-in"));
+        guestDirectory.addHistory(new entity.StayRecord("SR-0003", "VIP-2002", "Dato Steven",
+                entity.StayRecord.EVENT_ROOM_CHANGED, "201", Room.TYPE_SUITE, "DIAMOND",
+                now.minusHours(26), "Transferred from 105 (Deluxe)"));
+        guestDirectory.addHistory(new entity.StayRecord("SR-0004", "VIP-2002", "Dato Steven",
+                entity.StayRecord.EVENT_CHECKED_OUT, "201", Room.TYPE_SUITE, "DIAMOND",
+                now.minusHours(2), "Prior visit check-out"));
+    }
 
     private int getIntInput() {
         while (!scanner.hasNextInt()) {
